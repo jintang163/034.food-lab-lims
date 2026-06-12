@@ -6,29 +6,27 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'detect_controller.dart';
 import 'dynamic_form_widget.dart';
 import '../../models/detect_item_model.dart';
+import '../../theme/app_theme.dart';
 
 class DetectView extends GetView<DetectController> {
   const DetectView({super.key});
 
-  int get taskId => (Get.arguments?['taskId'] as int?) ?? 0;
-  int get sampleId => (Get.arguments?['sampleId'] as int?) ?? 0;
-  String get sampleCode => (Get.arguments?['sampleCode'] as String?) ?? '';
-  int get detectItemId => (Get.arguments?['detectItemId'] as int?) ?? 0;
-  String get detectItemName => (Get.arguments?['detectItemName'] as String?) ?? '';
-  DetectItemModel? get detectItem => Get.arguments?['detectItem'] as DetectItemModel?;
-
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (controller.formSchema.isEmpty && !controller.isLoading.value) {
-        controller.loadFormSchema(detectItemId);
-      }
-    });
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('$detectItemName 检测'),
+        title: Obx(() => Text(
+              controller.showItemList.value
+                  ? '选择检测项目'
+                  : '${controller.detectItemName ?? ''} 检测',
+            )),
         centerTitle: true,
+        leading: Obx(() => controller.showItemList.value
+            ? const SizedBox.shrink()
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => controller.backToList(),
+              )),
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
@@ -37,58 +35,189 @@ class DetectView extends GetView<DetectController> {
           );
         }
 
-        if (controller.formSchema.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64.sp,
-                  color: Colors.grey[400],
-                ),
-                SizedBox(height: 16.h),
-                Text(
-                  '表单加载失败',
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                SizedBox(height: 16.h),
-                ElevatedButton(
-                  onPressed: () => controller.loadFormSchema(detectItemId),
-                  child: const Text('重新加载'),
-                ),
-              ],
-            ),
-          );
+        if (controller.showItemList.value) {
+          return _buildItemList();
         }
 
-        return SingleChildScrollView(
-          padding: EdgeInsets.all(16.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSampleInfo(),
-              SizedBox(height: 16.h),
-              _buildLimitStandard(),
-              SizedBox(height: 16.h),
-              _buildJudgeResult(),
-              SizedBox(height: 16.h),
-              DynamicFormWidget(
-                schema: controller.formSchema,
-                formData: controller.formData,
-                judgeStatus: controller.judgeStatus.value,
-                onChanged: controller.updateFormField,
+        return _buildFormView();
+      }),
+    );
+  }
+
+  Widget _buildItemList() {
+    if (controller.detectItemList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64.sp,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              '暂无检测项目',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Colors.grey[600],
               ),
-              SizedBox(height: 24.h),
-              _buildSubmitButton(),
-              SizedBox(height: 32.h),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: EdgeInsets.all(12.w),
+      itemCount: controller.detectItemList.length,
+      itemBuilder: (context, index) {
+        final item = controller.detectItemList[index];
+        return _buildItemCard(item);
+      },
+    );
+  }
+
+  Widget _buildItemCard(DetectItemModel item) {
+    return Card(
+      margin: EdgeInsets.only(bottom: 12.h),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8.r),
+        onTap: () => controller.selectDetectItem(item),
+        child: Padding(
+          padding: EdgeInsets.all(16.w),
+          child: Row(
+            children: [
+              Container(
+                width: 48.w,
+                height: 48.h,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Icon(
+                  Icons.science,
+                  color: AppTheme.primaryColor,
+                  size: 24.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.itemName ?? '未知项目',
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    if (item.itemCode != null)
+                      SizedBox(height: 4.h),
+                    if (item.itemCode != null)
+                      Text(
+                        '编号: ${item.itemCode}',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    if (item.categoryName != null)
+                      SizedBox(height: 4.h),
+                    if (item.categoryName != null)
+                      Text(
+                        '分类: ${item.categoryName}',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    if (item.unit != null)
+                      SizedBox(height: 4.h),
+                    if (item.unit != null)
+                      Text(
+                        '单位: ${item.unit}',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16.sp,
+                color: Colors.grey[400],
+              ),
             ],
           ),
-        );
-      }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormView() {
+    if (controller.formSchema.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64.sp,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              '表单加载失败',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: () {
+                if (controller.detectItemId != null) {
+                  controller.loadFormSchema(controller.detectItemId!);
+                }
+              },
+              child: const Text('重新加载'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSampleInfo(),
+          SizedBox(height: 16.h),
+          _buildLimitStandard(),
+          SizedBox(height: 16.h),
+          _buildJudgeResult(),
+          SizedBox(height: 16.h),
+          DynamicFormWidget(
+            schema: controller.formSchema,
+            formData: controller.formData,
+            judgeStatus: controller.judgeStatus.value,
+            onChanged: controller.updateFormField,
+          ),
+          SizedBox(height: 24.h),
+          _buildSubmitButton(),
+          SizedBox(height: 32.h),
+        ],
+      ),
     );
   }
 
@@ -113,7 +242,7 @@ class DetectView extends GetView<DetectController> {
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
-              '样品编号: $sampleCode',
+              '样品编号: ${controller.sampleCode ?? ''}',
               style: TextStyle(
                 fontSize: 14.sp,
                 color: Colors.blue[800],
@@ -273,11 +402,11 @@ class DetectView extends GetView<DetectController> {
                 : () async {
                     SmartDialog.showLoading(msg: '提交中...');
                     final success = await controller.submitResult(
-                      taskId: taskId,
-                      sampleId: sampleId,
-                      sampleCode: sampleCode,
-                      detectItemId: detectItemId,
-                      detectItemName: detectItemName,
+                      taskId: controller.taskId ?? 0,
+                      sampleId: controller.sampleId ?? 0,
+                      sampleCode: controller.sampleCode ?? '',
+                      detectItemId: controller.detectItemId ?? 0,
+                      detectItemName: controller.detectItemName ?? '',
                     );
                     SmartDialog.dismiss();
                     if (success) {

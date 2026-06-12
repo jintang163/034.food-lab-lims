@@ -79,29 +79,34 @@ class LoginController extends GetxController {
       );
 
       if (response.statusCode == 200) {
-        final data = response.data['data'];
-        final user = UserModel.fromJson(data);
+        final result = response.data;
+        if (result['code'] == 200) {
+          final data = result['data'];
+          final user = UserModel.fromJson(data);
 
-        if (user.token != null) {
-          await _storageService.saveUserInfo(
-            token: user.token!,
-            userId: user.id ?? 0,
-            userName: user.realName ?? user.username ?? '',
-            userType: user.userType ?? '',
-          );
+          if (user.token != null && user.token!.isNotEmpty) {
+            await _storageService.saveUserInfo(
+              token: user.token!,
+              userId: user.id ?? 0,
+              userName: user.realName ?? user.username ?? '',
+              userType: user.userType ?? '',
+            );
 
-          if (rememberMe.value) {
-            await _storageService.setRememberMe(true);
-            await _storageService.setUsername(username);
+            if (rememberMe.value) {
+              await _storageService.setRememberMe(true);
+              await _storageService.setUsername(username);
+            } else {
+              await _storageService.setRememberMe(false);
+              await _storageService.setUsername('');
+            }
+
+            Fluttertoast.showToast(msg: '登录成功');
+            Get.offAllNamed('/home');
           } else {
-            await _storageService.setRememberMe(false);
-            await _storageService.setUsername('');
+            Fluttertoast.showToast(msg: '登录失败：未获取到令牌');
           }
-
-          Fluttertoast.showToast(msg: '登录成功');
-          Get.offAllNamed('/home');
         } else {
-          Fluttertoast.showToast(msg: '登录失败：未获取到令牌');
+          Fluttertoast.showToast(msg: result['message'] ?? '登录失败');
         }
       } else {
         Fluttertoast.showToast(msg: '登录失败：${response.statusMessage}');

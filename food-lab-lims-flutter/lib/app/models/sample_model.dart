@@ -72,4 +72,29 @@ class SampleModel {
       'deviceId': deviceId,
     };
   }
+
+  Map<String, dynamic> toSyncJson() {
+    return {
+      'id': id,
+      'offlineId': offlineId,
+      'sampleCode': sampleCode,
+      'sampleName': sampleName,
+      'batchNo': batchNo,
+      'manufacturer': manufacturer,
+      'productionDate': productionDate,
+      'shelfLife': shelfLife,
+      'sampleLocation': sampleLocation,
+      'sampleMethod': sampleMethod,
+      'samplePerson': samplePerson,
+      'sampleAmount': sampleAmount,
+      'sampleUnit': sampleUnit,
+      'sampleStatus': sampleStatus,
+      'remark': remark,
+      'barCode': barCode,
+      'qrCode': qrCode,
+      'detectItemIds': detectItemIds,
+      'deviceId': deviceId,
+      'createTime': createTime,
+    };
+  }
 }

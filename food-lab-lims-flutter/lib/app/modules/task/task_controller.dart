@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:logger/logger.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -6,6 +7,7 @@ import '../../models/task_model.dart';
 import '../../services/dio_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../config/api_config.dart';
+import '../../constants/task_constants.dart';
 
 class TaskController extends GetxController {
   final Logger _logger = Logger();
@@ -13,14 +15,14 @@ class TaskController extends GetxController {
   final ConnectivityService _connectivityService = Get.find<ConnectivityService>();
 
   final RxList<TaskModel> pendingTasks = <TaskModel>[].obs;
-  final RxList<TaskModel> testingTasks = <TaskModel>[].obs;
-  final RxList<TaskModel> completedTasks = <TaskModel>[].obs;
+  final RxList<TaskModel> detectingTasks = <TaskModel>[].obs;
   final RxList<TaskModel> auditingTasks = <TaskModel>[].obs;
+  final RxList<TaskModel> completedTasks = <TaskModel>[].obs;
 
   final RxBool isLoading = false.obs;
   final RxInt currentIndex = 0.obs;
 
-  final List<String> tabTitles = ['待检', '检测中', '已完成', '审核中'];
+  final List<String> tabTitles = ['待检', '检测中', '审核中', '已完成'];
 
   @override
   void onInit() {
@@ -63,23 +65,25 @@ class TaskController extends GetxController {
 
   void _categorizeTasks(List<TaskModel> tasks) {
     pendingTasks.clear();
-    testingTasks.clear();
-    completedTasks.clear();
+    detectingTasks.clear();
     auditingTasks.clear();
+    completedTasks.clear();
 
     for (var task in tasks) {
       switch (task.taskStatus) {
-        case 'pending':
+        case TaskConstants.pending:
           pendingTasks.add(task);
           break;
-        case 'testing':
-          testingTasks.add(task);
+        case TaskConstants.detecting:
+          detectingTasks.add(task);
           break;
-        case 'completed':
-          completedTasks.add(task);
-          break;
-        case 'auditing':
+        case TaskConstants.firstAudit:
+        case TaskConstants.secondAudit:
           auditingTasks.add(task);
+          break;
+        case TaskConstants.approved:
+        case TaskConstants.rejected:
+          completedTasks.add(task);
           break;
         default:
           pendingTasks.add(task);
@@ -152,7 +156,7 @@ class TaskController extends GetxController {
   }
 
   void goToDetect(TaskModel task) {
-    if (task.taskStatus == 'pending') {
+    if (TaskConstants.isPending(task.taskStatus)) {
       Get.dialog(
         AlertDialog(
           title: const Text('开始任务'),
@@ -175,7 +179,7 @@ class TaskController extends GetxController {
           ],
         ),
       );
-    } else if (task.taskStatus == 'testing') {
+    } else if (TaskConstants.isDetecting(task.taskStatus)) {
       Get.toNamed('/detect', arguments: task);
     } else {
       Get.toNamed('/detect', arguments: task);
@@ -184,32 +188,24 @@ class TaskController extends GetxController {
 
   Color getStatusColor(String? status) {
     switch (status) {
-      case 'pending':
+      case TaskConstants.pending:
         return Colors.grey;
-      case 'testing':
+      case TaskConstants.detecting:
         return Colors.blue;
-      case 'completed':
-        return Colors.green;
-      case 'auditing':
+      case TaskConstants.firstAudit:
+      case TaskConstants.secondAudit:
         return Colors.orange;
+      case TaskConstants.approved:
+        return Colors.green;
+      case TaskConstants.rejected:
+        return Colors.red;
       default:
         return Colors.grey;
     }
   }
 
   String getStatusText(String? status) {
-    switch (status) {
-      case 'pending':
-        return '待检';
-      case 'testing':
-        return '检测中';
-      case 'completed':
-        return '已完成';
-      case 'auditing':
-        return '审核中';
-      default:
-        return '未知';
-    }
+    return TaskConstants.getStatusText(status);
   }
 
   List<TaskModel> getCurrentTasks() {
@@ -217,11 +213,11 @@ class TaskController extends GetxController {
       case 0:
         return pendingTasks;
       case 1:
-        return testingTasks;
+        return detectingTasks;
       case 2:
-        return completedTasks;
-      case 3:
         return auditingTasks;
+      case 3:
+        return completedTasks;
       default:
         return pendingTasks;
     }

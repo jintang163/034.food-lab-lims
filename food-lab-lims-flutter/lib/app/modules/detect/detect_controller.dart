@@ -7,14 +7,17 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../../services/dio_service.dart';
 import '../../services/database_service.dart';
 import '../../services/connectivity_service.dart';
+import '../../services/storage_service.dart';
 import '../../config/api_config.dart';
 import '../../models/detect_result_model.dart';
 import '../../models/detect_item_model.dart';
+import '../../models/task_model.dart';
 
 class DetectController extends GetxController {
   final DioService _dioService = Get.find<DioService>();
   final DatabaseService _databaseService = Get.find<DatabaseService>();
   final ConnectivityService _connectivityService = Get.find<ConnectivityService>();
+  final StorageService _storageService = Get.find<StorageService>();
   final Logger _logger = Logger();
   final Random _random = Random();
 
@@ -27,10 +30,93 @@ class DetectController extends GetxController {
   final RxString judgeResult = ''.obs;
   final RxString judgeStatus = ''.obs;
 
+  final RxList<DetectItemModel> detectItemList = <DetectItemModel>[].obs;
+  final RxInt currentItemIndex = 0.obs;
+  final RxBool showItemList = true.obs;
+
+  int? taskId;
+  int? sampleId;
+  String? sampleCode;
+  int? detectItemId;
+  String? detectItemName;
+
   @override
   void onInit() {
     super.onInit();
     ever(formData, (_) => _autoJudge());
+    _initFromArguments();
+  }
+
+  void _initFromArguments() {
+    final args = Get.arguments;
+    if (args is Map<String, dynamic>) {
+      taskId = args['taskId'] as int?;
+      sampleId = args['sampleId'] as int?;
+      sampleCode = args['sampleCode'] as String?;
+      detectItemId = args['detectItemId'] as int?;
+      detectItemName = args['detectItemName'] as String?;
+      showItemList.value = detectItemId == null;
+    } else if (args is TaskModel) {
+      taskId = args.id;
+      sampleId = args.sampleId;
+      sampleCode = args.sampleCode;
+      showItemList.value = true;
+    }
+
+    if (detectItemId != null) {
+      loadFormSchema(detectItemId!);
+    } else if (taskId != null) {
+      loadDetectItemsForTask();
+    }
+  }
+
+  Future<void> loadDetectItemsForTask() async {
+    isLoading.value = true;
+    try {
+      bool isConnected = await _connectivityService.checkConnection();
+      if (!isConnected) {
+        Fluttertoast.showToast(msg: '网络不可用，无法加载检测项目');
+        isLoading.value = false;
+        return;
+      }
+
+      final response = await _dioService.get(
+        ApiConfig.detectItemList,
+      );
+
+      if (response.statusCode == 200) {
+        final result = response.data;
+        if (result['code'] == 200) {
+          final List<dynamic> records = result['data'] ?? [];
+          detectItemList.value =
+              records.map((e) => DetectItemModel.fromJson(e)).toList();
+        } else {
+          Fluttertoast.showToast(msg: result['message'] ?? '加载失败');
+        }
+      }
+    } catch (e) {
+      _logger.e('加载检测项目列表失败: $e');
+      Fluttertoast.showToast(msg: '加载失败: ${e.toString()}');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  void selectDetectItem(DetectItemModel item) {
+    detectItemId = item.id;
+    detectItemName = item.itemName;
+    detectItem.value = item;
+    showItemList.value = false;
+    loadFormSchema(item.id!);
+  }
+
+  void backToList() {
+    showItemList.value = true;
+    formSchema.clear();
+    formData.clear();
+    detectItem.value = null;
+    judgeResult.value = '';
+    judgeStatus.value = '';
   }
 
   Future<void> loadFormSchema(int detectItemId) async {

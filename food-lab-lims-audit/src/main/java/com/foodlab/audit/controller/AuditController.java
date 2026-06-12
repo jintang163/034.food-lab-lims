@@ -10,18 +10,19 @@ import com.foodlab.common.result.PageResult;
 import com.foodlab.common.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "审核管理", description = "两级审核流程管理")
 @RestController
 @RequestMapping("/api/audit")
-@RequiredArgsConstructor
 public class AuditController {
 
-    private final AuditService auditService;
+    @Autowired
+    private AuditService auditService;
 
     @Operation(summary = "提交审核")
     @PostMapping("/submit")
@@ -70,5 +71,37 @@ public class AuditController {
     @GetMapping("/my-pending")
     public Result<List<AuditRecordVO>> getMyPendingAudits(@RequestHeader("userId") Long userId) {
         return Result.success(auditService.getMyPendingAudits(userId));
+    }
+
+    @Operation(summary = "启动审批流程")
+    @PostMapping("/process/start")
+    public Result<String> startProcess(@RequestParam Long taskId,
+                                       @RequestHeader("userId") Long submitterId,
+                                       @RequestHeader("userName") String submitterName) {
+        String processInstanceId = auditService.startProcess(taskId, submitterId, submitterName);
+        return Result.success(processInstanceId);
+    }
+
+    @Operation(summary = "完成审核任务")
+    @PostMapping("/process/complete")
+    public Result<Void> completeTask(@RequestParam String taskId,
+                                     @RequestParam String result,
+                                     @RequestParam(required = false) String comment) {
+        auditService.completeTask(taskId, result, comment);
+        return Result.success();
+    }
+
+    @Operation(summary = "获取我的待审任务")
+    @GetMapping("/my-tasks")
+    public Result<List<Map<String, Object>>> getMyAuditTasks(@RequestHeader("userId") Long userId) {
+        List<Map<String, Object>> tasks = auditService.getMyAuditTasks(userId);
+        return Result.success(tasks);
+    }
+
+    @Operation(summary = "获取流程历史")
+    @GetMapping("/process/history/{processInstanceId}")
+    public Result<List<Map<String, Object>>> getProcessHistory(@PathVariable String processInstanceId) {
+        List<Map<String, Object>> history = auditService.getProcessHistory(processInstanceId);
+        return Result.success(history);
     }
 }

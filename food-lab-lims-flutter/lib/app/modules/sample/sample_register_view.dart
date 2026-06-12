@@ -54,9 +54,82 @@ class SampleRegisterView extends GetView<SampleController> {
               onChanged: (value) => controller.sampleLocation.value = value,
             ),
             SizedBox(height: 24.h),
+            _buildSectionTitle('采样信息'),
+            SizedBox(height: 12.h),
+            _buildTextField(
+              label: '采样人',
+              hint: '请输入采样人',
+              icon: Icons.person,
+              onChanged: (value) => controller.samplePerson.value = value,
+            ),
+            SizedBox(height: 12.h),
+            _buildTextField(
+              label: '采样方式',
+              hint: '请输入采样方式',
+              icon: Icons.inventory,
+              onChanged: (value) => controller.sampleMethod.value = value,
+            ),
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    label: '样品数量',
+                    hint: '请输入数量',
+                    icon: Icons.numbers,
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) => controller.sampleAmount.value = value,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: _buildTextField(
+                    label: '单位',
+                    hint: '请输入单位',
+                    icon: Icons.straighten,
+                    onChanged: (value) => controller.sampleUnit.value = value,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    label: '生产日期',
+                    hint: '请选择日期',
+                    icon: Icons.calendar_today,
+                    readOnly: true,
+                    onTap: () => _selectDate('production'),
+                    onChanged: (value) => controller.productionDate.value = value,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: _buildTextField(
+                    label: '保质期',
+                    hint: '请输入保质期',
+                    icon: Icons.schedule,
+                    onChanged: (value) => controller.shelfLife.value = value,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 24.h),
             _buildSectionTitle('检测项目'),
             SizedBox(height: 12.h),
             _buildDetectItemList(),
+            SizedBox(height: 24.h),
+            _buildSectionTitle('备注'),
+            SizedBox(height: 12.h),
+            _buildTextField(
+              label: '备注',
+              hint: '请输入备注信息',
+              icon: Icons.note,
+              maxLines: 3,
+              onChanged: (value) => controller.remark.value = value,
+            ),
             SizedBox(height: 24.h),
             Row(
               children: [
@@ -129,6 +202,8 @@ class SampleRegisterView extends GetView<SampleController> {
     required ValueChanged<String> onChanged,
     TextInputType? keyboardType,
     int maxLines = 1,
+    bool readOnly = false,
+    VoidCallback? onTap,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,6 +234,8 @@ class SampleRegisterView extends GetView<SampleController> {
           onChanged: onChanged,
           keyboardType: keyboardType,
           maxLines: maxLines,
+          readOnly: readOnly,
+          onTap: onTap,
           style: TextStyle(fontSize: 14.sp),
           decoration: InputDecoration(
             hintText: hint,
@@ -183,6 +260,22 @@ class SampleRegisterView extends GetView<SampleController> {
         ),
       ],
     );
+  }
+
+  Future<void> _selectDate(String type) async {
+    final date = await showDatePicker(
+      context: Get.context!,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+
+    if (date != null) {
+      final dateStr = date.toIso8601String().split('T').first;
+      if (type == 'production') {
+        controller.productionDate.value = dateStr;
+      }
+    }
   }
 
   Widget _buildDetectItemList() {

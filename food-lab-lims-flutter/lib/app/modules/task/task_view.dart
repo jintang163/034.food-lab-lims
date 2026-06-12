@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme/app_theme.dart';
 import '../../models/task_model.dart';
 import 'task_controller.dart';
+import '../../constants/task_constants.dart';
 
 class TaskView extends GetView<TaskController> {
   const TaskView({super.key});
@@ -68,13 +69,13 @@ class TaskView extends GetView<TaskController> {
         count = controller.pendingTasks.length;
         break;
       case 1:
-        count = controller.testingTasks.length;
+        count = controller.detectingTasks.length;
         break;
       case 2:
-        count = controller.completedTasks.length;
+        count = controller.auditingTasks.length;
         break;
       case 3:
-        count = controller.auditingTasks.length;
+        count = controller.completedTasks.length;
         break;
       default:
         count = 0;
@@ -143,10 +144,10 @@ class TaskView extends GetView<TaskController> {
         emptyText = '暂无检测中任务';
         break;
       case 2:
-        emptyText = '暂无已完成任务';
+        emptyText = '暂无审核中任务';
         break;
       case 3:
-        emptyText = '暂无审核中任务';
+        emptyText = '暂无已完成任务';
         break;
       default:
         emptyText = '暂无任务数据';
@@ -264,7 +265,7 @@ class TaskView extends GetView<TaskController> {
               SizedBox(height: 8.h),
               if (task.detectItemCount != null &&
                   task.detectItemCount! > 0 &&
-                  task.taskStatus == 'testing')
+                  task.taskStatus == TaskConstants.detecting)
                 LinearProgressIndicator(
                   value: (task.completedItemCount ?? 0) / task.detectItemCount!,
                   backgroundColor: Colors.grey[200],
@@ -274,7 +275,7 @@ class TaskView extends GetView<TaskController> {
                   borderRadius: BorderRadius.circular(3.r),
                 ),
               SizedBox(height: 8.h),
-              if (task.taskStatus == 'pending')
+              if (task.taskStatus == TaskConstants.pending)
                 Align(
                   alignment: Alignment.centerRight,
                   child: ElevatedButton.icon(

@@ -6,8 +6,12 @@ import com.foodlab.audit.dto.AuditQueryDTO;
 import com.foodlab.audit.dto.AuditSubmitDTO;
 import com.foodlab.audit.entity.AuditRecord;
 import com.foodlab.audit.vo.AuditRecordVO;
+import org.flowable.task.api.Task;
+import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.task.api.history.HistoricTaskInstance;
 
 import java.util.List;
+import java.util.Map;
 
 public interface AuditService extends IService<AuditRecord> {
 
@@ -22,4 +26,12 @@ public interface AuditService extends IService<AuditRecord> {
     IPage<AuditRecord> getAuditPage(int pageNum, int pageSize, AuditQueryDTO queryDTO);
 
     List<AuditRecordVO> getMyPendingAudits(Long auditorId);
+
+    String startProcess(Long taskId, Long submitterId, String submitterName);
+
+    void completeTask(String taskId, String result, String comment);
+
+    List<Map<String, Object>> getMyAuditTasks(Long userId);
+
+    List<Map<String, Object>> getProcessHistory(String processInstanceId);
 }

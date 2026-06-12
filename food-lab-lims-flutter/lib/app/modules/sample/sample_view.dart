@@ -5,6 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../theme/app_theme.dart';
 import 'sample_controller.dart';
+import '../../models/sample_model.dart';
+import '../../constants/sample_constants.dart';
 
 class SampleView extends GetView<SampleController> {
   const SampleView({super.key});
@@ -182,15 +184,23 @@ class SampleView extends GetView<SampleController> {
     Color textColor;
 
     switch (status) {
+      case SampleConstants.syncStatusSynced:
       case 'synced':
         bgColor = Colors.green.withOpacity(0.1);
         textColor = Colors.green;
         text = '已同步';
         break;
+      case SampleConstants.syncStatusPending:
       case 'pending':
         bgColor = Colors.orange.withOpacity(0.1);
         textColor = Colors.orange;
         text = '待同步';
+        break;
+      case SampleConstants.syncStatusFailed:
+      case 'failed':
+        bgColor = Colors.red.withOpacity(0.1);
+        textColor = Colors.red;
+        text = '同步失败';
         break;
       default:
         bgColor = Colors.blue.withOpacity(0.1);

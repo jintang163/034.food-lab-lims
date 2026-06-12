@@ -21,23 +21,46 @@ import com.foodlab.detect.entity.DetectResult;
 import com.foodlab.detect.mapper.DetectResultMapper;
 import com.foodlab.task.entity.DetectTask;
 import com.foodlab.task.mapper.DetectTaskMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.flowable.engine.HistoryService;
+import org.flowable.engine.RuntimeService;
+import org.flowable.engine.TaskService;
+import org.flowable.engine.history.HistoricActivityInstance;
+import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.task.api.Task;
+import org.flowable.task.api.history.HistoricTaskInstance;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord> implements AuditService {
 
-    private final AuditRecordMapper auditRecordMapper;
-    private final DetectTaskMapper detectTaskMapper;
-    private final DetectResultMapper detectResultMapper;
+    @Autowired
+    private AuditRecordMapper auditRecordMapper;
+
+    @Autowired
+    private DetectTaskMapper detectTaskMapper;
+
+    @Autowired
+    private DetectResultMapper detectResultMapper;
+
+    @Autowired
+    private RuntimeService runtimeService;
+
+    @Autowired
+    private TaskService taskService;
+
+    @Autowired
+    private HistoryService historyService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -143,6 +166,101 @@ public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord
         return records.stream()
                 .map(r -> BeanUtil.copyProperties(r, AuditRecordVO.class))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String startProcess(Long taskId, Long submitterId, String submitterName) {
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("taskId", taskId);
+        variables.put("submitterId", submitterId);
+        variables.put("submitterName", submitterName);
+
+        DetectTask task = detectTaskMapper.selectById(taskId);
+        if (task != null) {
+            variables.put("businessCode", task.getTaskCode());
+            variables.put("sampleCode", task.getSampleCode());
+        }
+
+        variables.put("firstAuditorId", submitterId);
+        variables.put("secondAuditorId", submitterId);
+
+        runtimeService.startProcessInstanceByKey("detectAuditProcess", String.valueOf(taskId), variables);
+
+        return String.valueOf(taskId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void completeTask(String taskId, String result, String comment) {
+        Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+        if (task == null) {
+            throw new BusinessException(ResultCode.AUDIT_NOT_FOUND, "审核任务不存在");
+        }
+
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("auditResult", result);
+        variables.put("auditComment", comment);
+
+        taskService.complete(taskId, variables);
+    }
+
+    @Override
+    public List<Map<String, Object>> getMyAuditTasks(Long userId) {
+        List<Task> tasks = taskService.createTaskQuery()
+                .taskAssignee(String.valueOf(userId))
+                .orderByTaskCreateTime()
+                .desc()
+                .list();
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Task task : tasks) {
+            Map<String, Object> taskMap = new HashMap<>();
+            taskMap.put("taskId", task.getId());
+            taskMap.put("taskName", task.getName());
+            taskMap.put("processInstanceId", task.getProcessInstanceId());
+            taskMap.put("createTime", task.getCreateTime());
+            taskMap.put("assignee", task.getAssignee());
+            taskMap.put("description", task.getDescription());
+
+            Map<String, Object> variables = taskService.getVariables(task.getId());
+            taskMap.put("variables", variables);
+
+            result.add(taskMap);
+        }
+        return result;
+    }
+
+    @Override
+    public List<Map<String, Object>> getProcessHistory(String processInstanceId) {
+        HistoricProcessInstance processInstance = historyService.createHistoricProcessInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .singleResult();
+
+        if (processInstance == null) {
+            throw new BusinessException(ResultCode.AUDIT_NOT_FOUND, "流程实例不存在");
+        }
+
+        List<HistoricActivityInstance> activities = historyService.createHistoricActivityInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .orderByHistoricActivityInstanceStartTime()
+                .asc()
+                .list();
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (HistoricActivityInstance activity : activities) {
+            Map<String, Object> activityMap = new HashMap<>();
+            activityMap.put("activityId", activity.getActivityId());
+            activityMap.put("activityName", activity.getActivityName());
+            activityMap.put("activityType", activity.getActivityType());
+            activityMap.put("assignee", activity.getAssignee());
+            activityMap.put("startTime", activity.getStartTime());
+            activityMap.put("endTime", activity.getEndTime());
+            activityMap.put("durationInMillis", activity.getDurationInMillis());
+
+            result.add(activityMap);
+        }
+        return result;
     }
 
     private void createSecondLevelAudit(AuditSubmitDTO dto, Long previousAuditId, Long userId) {

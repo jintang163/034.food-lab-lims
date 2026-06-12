@@ -5,9 +5,11 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../../services/dio_service.dart';
 import '../../services/database_service.dart';
 import '../../services/connectivity_service.dart';
+import '../../services/storage_service.dart';
 import '../../config/api_config.dart';
 import '../../models/sample_model.dart';
 import '../../models/detect_result_model.dart';
+import '../../constants/sample_constants.dart';
 
 class OfflineController extends GetxController {
   final DioService _dioService = Get.find<DioService>();
@@ -132,15 +134,59 @@ class OfflineController extends GetxController {
   Future<void> _syncSample(SampleModel sample) async {
     try {
       final response = await _dioService.post(
-        ApiConfig.sampleSync,
+        ApiConfig.sampleRegister,
         data: sample.toRegisterJson(),
       );
 
       if (response.statusCode == 200 && response.data['code'] == 200) {
         if (sample.id != null) {
-          await _databaseService.updateSampleSyncStatus(sample.id!, 'synced');
+          await _databaseService.updateSampleSyncStatus(
+            sample.id!,
+            SampleConstants.syncStatusSynced,
+          );
         }
         _logger.i('样品同步成功: ${sample.sampleCode}');
+      } else {
+        throw Exception(response.data['message'] ?? '同步失败');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> _syncSampleBatch(List<SampleModel> samples) async {
+    try {
+      final syncData = samples.map((e) => e.toSyncJson()).toList();
+      final storage = Get.find<StorageService>();
+
+      final response = await _dioService.post(
+        ApiConfig.sampleSync,
+        data: {
+          'samples': syncData,
+          'deviceId': storage.getDeviceId(),
+        },
+      );
+
+      if (response.statusCode == 200 && response.data['code'] == 200) {
+        final data = response.data['data'];
+        final successSamples = data['successSamples'] as List? ?? [];
+
+        for (var sampleData in successSamples) {
+          final offlineId = sampleData['offlineId'];
+          if (offlineId != null) {
+            final localSample = samples.firstWhereOrNull(
+              (s) => s.offlineId == offlineId,
+            );
+            if (localSample != null && localSample.id != null) {
+              await _databaseService.updateSampleSyncStatus(
+                localSample.id!,
+                SampleConstants.syncStatusSynced,
+              );
+            }
+          }
+        }
+
+        _logger.i('样品批量同步成功: ${successSamples.length}/${samples.length}');
       } else {
         throw Exception(response.data['message'] ?? '同步失败');
       }
@@ -152,13 +198,16 @@ class OfflineController extends GetxController {
   Future<void> _syncDetectResult(DetectResultModel result) async {
     try {
       final response = await _dioService.post(
-        ApiConfig.detectResultSync,
+        ApiConfig.detectResultSubmit,
         data: result.toSubmitJson(),
       );
 
       if (response.statusCode == 200 && response.data['code'] == 200) {
         if (result.id != null) {
-          await _databaseService.updateDetectResultSyncStatus(result.id!, 'synced');
+          await _databaseService.updateDetectResultSyncStatus(
+            result.id!,
+            SampleConstants.syncStatusSynced,
+          );
         }
         _logger.i('检测结果同步成功: ${result.detectItemName}');
       } else {
@@ -192,20 +241,14 @@ class OfflineController extends GetxController {
     syncTotal.value = pendingSamples.length;
 
     try {
-      for (var i = 0; i < pendingSamples.length; i++) {
-        final sample = pendingSamples[i];
-        syncProgress.value = i + 1;
-        currentSyncItem.value = '正在同步样品: ${sample.sampleCode ?? ''}';
+      currentSyncItem.value = '正在同步样品...';
 
-        try {
-          await _syncSample(sample);
-          syncSuccess.value++;
-        } catch (e) {
-          syncFailed.value++;
-          syncErrors.add('样品 ${sample.sampleCode}: ${e.toString().contains('DioError') ? '网络请求失败' : e.toString()}');
-        }
-
-        await Future.delayed(const Duration(milliseconds: 300));
+      try {
+        await _syncSampleBatch(pendingSamples);
+        syncSuccess.value = pendingSamples.length;
+      } catch (e) {
+        syncFailed.value = pendingSamples.length;
+        syncErrors.add('批量同步失败: ${e.toString()}');
       }
 
       syncStatus.value = 'completed';

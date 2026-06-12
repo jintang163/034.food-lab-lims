@@ -10,6 +10,7 @@ import '../../services/database_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/storage_service.dart';
 import '../../config/api_config.dart';
+import '../../constants/sample_constants.dart';
 
 class SampleController extends GetxController {
   final Logger _logger = Logger();
@@ -31,6 +32,13 @@ class SampleController extends GetxController {
   final RxString batchNo = ''.obs;
   final RxString manufacturer = ''.obs;
   final RxString sampleLocation = ''.obs;
+  final RxString samplePerson = ''.obs;
+  final RxString sampleMethod = ''.obs;
+  final RxString sampleAmount = ''.obs;
+  final RxString sampleUnit = ''.obs;
+  final RxString productionDate = ''.obs;
+  final RxString shelfLife = ''.obs;
+  final RxString remark = ''.obs;
 
   @override
   void onInit() {
@@ -123,7 +131,7 @@ class SampleController extends GetxController {
     }
 
     try {
-      String? deviceId = await _getDeviceId();
+      String? deviceId = _getDeviceId();
       String offlineId = 'OFF_${DateTime.now().millisecondsSinceEpoch}';
 
       SampleModel sample = SampleModel(
@@ -131,9 +139,16 @@ class SampleController extends GetxController {
         sampleName: sampleName.value,
         batchNo: batchNo.value,
         manufacturer: manufacturer.value,
+        productionDate: productionDate.value,
+        shelfLife: shelfLife.value,
         sampleLocation: sampleLocation.value,
+        sampleMethod: sampleMethod.value,
+        samplePerson: samplePerson.value,
+        sampleAmount: sampleAmount.value,
+        sampleUnit: sampleUnit.value,
+        remark: remark.value,
         detectItemIds: List.from(selectedDetectItemIds),
-        syncStatus: 'pending',
+        syncStatus: SampleConstants.syncStatusPending,
         createTime: DateTime.now().toIso8601String(),
         deviceId: deviceId,
       );
@@ -158,14 +173,14 @@ class SampleController extends GetxController {
       return;
     }
 
-    bool isConnected = await _connectivityService.isConnected();
+    bool isConnected = await _connectivityService.checkConnection();
     if (!isConnected) {
       Fluttertoast.showToast(msg: '网络不可用，请先离线保存');
       return;
     }
 
     try {
-      String? deviceId = await _getDeviceId();
+      String? deviceId = _getDeviceId();
       String offlineId = 'ONL_${DateTime.now().millisecondsSinceEpoch}';
 
       SampleModel sample = SampleModel(
@@ -173,7 +188,14 @@ class SampleController extends GetxController {
         sampleName: sampleName.value,
         batchNo: batchNo.value,
         manufacturer: manufacturer.value,
+        productionDate: productionDate.value,
+        shelfLife: shelfLife.value,
         sampleLocation: sampleLocation.value,
+        sampleMethod: sampleMethod.value,
+        samplePerson: samplePerson.value,
+        sampleAmount: sampleAmount.value,
+        sampleUnit: sampleUnit.value,
+        remark: remark.value,
         detectItemIds: List.from(selectedDetectItemIds),
         deviceId: deviceId,
       );
@@ -216,32 +238,50 @@ class SampleController extends GetxController {
         return;
       }
 
-      int successCount = 0;
-      int failCount = 0;
+      final syncData = pendingSamples.map((e) => e.toSyncJson()).toList();
 
-      for (var sample in pendingSamples) {
-        try {
-          final response = await _dioService.post(
-            ApiConfig.sampleRegister,
-            data: sample.toRegisterJson(),
-          );
+      final response = await _dioService.post(
+        ApiConfig.sampleSync,
+        data: {
+          'samples': syncData,
+          'deviceId': _storageService.getDeviceId(),
+        },
+      );
 
-          if (response.statusCode == 200 && response.data['code'] == 200) {
-            if (sample.id != null) {
-              await _databaseService.updateSampleSyncStatus(sample.id!, 'synced');
+      if (response.statusCode == 200) {
+        final result = response.data;
+        if (result['code'] == 200) {
+          final data = result['data'];
+          final successCount = data['successCount'] ?? 0;
+          final failCount = data['failCount'] ?? 0;
+          final successSamples = data['successSamples'] as List? ?? [];
+
+          for (var sampleData in successSamples) {
+            final offlineId = sampleData['offlineId'];
+            final serverId = sampleData['id'];
+            final sampleCode = sampleData['sampleCode'];
+
+            if (offlineId != null) {
+              final localSample = pendingSamples.firstWhereOrNull(
+                (s) => s.offlineId == offlineId,
+              );
+              if (localSample != null && localSample.id != null) {
+                await _databaseService.updateSampleSyncStatus(
+                  localSample.id!,
+                  SampleConstants.syncStatusSynced,
+                );
+              }
             }
-            successCount++;
-          } else {
-            failCount++;
           }
-        } catch (e) {
-          _logger.e('同步样品失败: $e');
-          failCount++;
+
+          Fluttertoast.showToast(
+            msg: '同步完成：成功$successCount条，失败$failCount条',
+          );
+          loadSamples(isRefresh: true);
+        } else {
+          Fluttertoast.showToast(msg: result['message'] ?? '同步失败');
         }
       }
-
-      Fluttertoast.showToast(msg: '同步完成：成功$successCount条，失败$failCount条');
-      loadSamples(isRefresh: true);
     } catch (e) {
       _logger.e('同步失败: $e');
       Fluttertoast.showToast(msg: '同步失败: ${e.toString()}');
@@ -280,6 +320,13 @@ class SampleController extends GetxController {
     batchNo.value = '';
     manufacturer.value = '';
     sampleLocation.value = '';
+    samplePerson.value = '';
+    sampleMethod.value = '';
+    sampleAmount.value = '';
+    sampleUnit.value = '';
+    productionDate.value = '';
+    shelfLife.value = '';
+    remark.value = '';
     selectedDetectItemIds.clear();
   }
 

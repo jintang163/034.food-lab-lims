@@ -22,6 +22,10 @@
             <artifactId>food-lab-lims-sample</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.foodlab</groupId>
+            <artifactId>food-lab-lims-audit</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-boot-starter</artifactId>
         </dependency>

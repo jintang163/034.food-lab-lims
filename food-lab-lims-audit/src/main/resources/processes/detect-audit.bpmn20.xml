@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://flowable.org/audit">
+
+    <process id="detectAuditProcess" name="检测结果两级审批流程" isExecutable="true">
+
+        <startEvent id="startEvent" name="提交审核">
+            <extensionElements>
+                <flowable:formProperty id="taskId" name="任务ID" type="long" required="true"/>
+                <flowable:formProperty id="sampleCode" name="样品编号" type="string" required="true"/>
+                <flowable:formProperty id="detectItemName" name="检测项目" type="string" required="true"/>
+                <flowable:formProperty id="submitterId" name="提交人ID" type="long" required="true"/>
+                <flowable:formProperty id="submitterName" name="提交人姓名" type="string" required="true"/>
+            </extensionElements>
+        </startEvent>
+
+        <userTask id="firstAuditTask" name="一级审核"
+                  flowable:assignee="${firstAuditorId}"
+                  flowable:formKey="first-audit-form">
+            <extensionElements>
+                <flowable:taskListener event="create" delegateExpression="${firstAuditCreateListener}"/>
+                <flowable:taskListener event="complete" delegateExpression="${firstAuditCompleteListener}"/>
+            </extensionElements>
+        </userTask>
+
+        <exclusiveGateway id="firstAuditGateway" name="一审结果"/>
+
+        <userTask id="secondAuditTask" name="二级审核"
+                  flowable:assignee="${secondAuditorId}"
+                  flowable:formKey="second-audit-form">
+            <extensionElements>
+                <flowable:taskListener event="create" delegateExpression="${secondAuditCreateListener}"/>
+                <flowable:taskListener event="complete" delegateExpression="${secondAuditCompleteListener}"/>
+            </extensionElements>
+        </userTask>
+
+        <exclusiveGateway id="secondAuditGateway" name="二审结果"/>
+
+        <endEvent id="approvedEndEvent" name="审核通过">
+            <extensionElements>
+                <flowable:executionListener event="end" delegateExpression="${approvedEndListener}"/>
+            </extensionElements>
+        </endEvent>
+
+        <endEvent id="rejectedEndEvent" name="审核驳回">
+            <extensionElements>
+                <flowable:executionListener event="end" delegateExpression="${rejectedEndListener}"/>
+            </extensionElements>
+        </endEvent>
+
+        <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="firstAuditTask"/>
+        <sequenceFlow id="flow2" sourceRef="firstAuditTask" targetRef="firstAuditGateway"/>
+
+        <sequenceFlow id="firstAuditPass" name="通过" sourceRef="firstAuditGateway" targetRef="secondAuditTask">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${auditResult == 'PASS'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="firstAuditReject" name="驳回" sourceRef="firstAuditGateway" targetRef="rejectedEndEvent">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${auditResult == 'REJECT'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow3" sourceRef="secondAuditTask" targetRef="secondAuditGateway"/>
+
+        <sequenceFlow id="secondAuditPass" name="通过" sourceRef="secondAuditGateway" targetRef="approvedEndEvent">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${auditResult == 'PASS'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="secondAuditReject" name="驳回" sourceRef="secondAuditGateway" targetRef="rejectedEndEvent">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${auditResult == 'REJECT'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+    </process>
+
+</definitions>

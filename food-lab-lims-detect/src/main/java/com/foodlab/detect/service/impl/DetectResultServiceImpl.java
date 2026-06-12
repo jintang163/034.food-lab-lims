@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.foodlab.common.constant.DetectConstants;
 import com.foodlab.common.constant.TaskConstants;
 import com.foodlab.common.domain.OfflineSyncResult;
+import com.foodlab.common.event.TaskCompletedEvent;
 import com.foodlab.common.exception.BusinessException;
 import com.foodlab.common.result.ResultCode;
 import com.foodlab.common.utils.CodeGenerator;
@@ -29,6 +30,7 @@ import com.foodlab.task.mapper.DetectTaskMapper;
 import com.foodlab.task.service.DetectTaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +53,7 @@ public class DetectResultServiceImpl extends ServiceImpl<DetectResultMapper, Det
     private final DetectTaskMapper detectTaskMapper;
     private final DetectTaskService detectTaskService;
     private final StringRedisTemplate redisTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -304,6 +307,16 @@ public class DetectResultServiceImpl extends ServiceImpl<DetectResultMapper, Det
             task.setCompletedItemCount(completedCount.intValue());
             if (completedCount.intValue() >= task.getDetectItemCount() && task.getDetectItemCount() > 0) {
                 detectTaskService.completeTask(taskId, task.getDetectPersonId());
+                eventPublisher.publishEvent(new TaskCompletedEvent(
+                        this,
+                        task.getId(),
+                        task.getTaskCode(),
+                        task.getSampleId(),
+                        task.getSampleCode(),
+                        task.getDetectPersonId(),
+                        task.getDetectPersonName()
+                ));
+                log.info("检测任务完成，发布任务完成事件，任务ID：{}", taskId);
             } else {
                 detectTaskMapper.updateById(task);
             }
