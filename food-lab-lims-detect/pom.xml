@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.foodlab</groupId>
+        <artifactId>food-lab-lims</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>food-lab-lims-detect</artifactId>
+    <name>food-lab-lims-detect</name>
+    <description>检测模块 - 动态表单、结果录入、自动判定</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.foodlab</groupId>
+            <artifactId>food-lab-lims-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foodlab</groupId>
+            <artifactId>food-lab-lims-task</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>easyexcel</artifactId>
+        </dependency>
+    </dependencies>
+</project>

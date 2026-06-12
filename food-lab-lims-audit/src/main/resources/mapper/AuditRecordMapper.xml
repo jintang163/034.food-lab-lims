@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.audit.mapper.AuditRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.audit.entity.AuditRecord">
+        <id column="id" property="id"/>
+        <result column="audit_code" property="auditCode"/>
+        <result column="business_type" property="businessType"/>
+        <result column="business_id" property="businessId"/>
+        <result column="business_code" property="businessCode"/>
+        <result column="audit_level" property="auditLevel"/>
+        <result column="audit_status" property="auditStatus"/>
+        <result column="auditor_id" property="auditorId"/>
+        <result column="auditor_name" property="auditorName"/>
+        <result column="audit_time" property="auditTime"/>
+        <result column="audit_opinion" property="auditOpinion"/>
+        <result column="previous_audit_id" property="previousAuditId"/>
+        <result column="next_audit_id" property="nextAuditId"/>
+        <result column="remark" property="remark"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectAuditPage" resultMap="BaseResultMap">
+        SELECT * FROM audit_record
+        <where>
+            deleted = 0
+            <if test="businessType != null and businessType != ''">
+                AND business_type = #{businessType}
+            </if>
+            <if test="businessCode != null and businessCode != ''">
+                AND business_code LIKE CONCAT('%', #{businessCode}, '%')
+            </if>
+            <if test="auditLevel != null">
+                AND audit_level = #{auditLevel}
+            </if>
+            <if test="auditStatus != null and auditStatus != ''">
+                AND audit_status = #{auditStatus}
+            </if>
+            <if test="auditorId != null">
+                AND auditor_id = #{auditorId}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND create_time &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND create_time &lt;= CONCAT(#{endDate}, ' 23:59:59')
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>

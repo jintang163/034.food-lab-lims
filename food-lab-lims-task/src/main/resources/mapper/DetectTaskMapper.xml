@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.task.mapper.DetectTaskMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.task.entity.DetectTask">
+        <id column="id" property="id"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="sample_id" property="sampleId"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="task_name" property="taskName"/>
+        <result column="task_type" property="taskType"/>
+        <result column="priority" property="priority"/>
+        <result column="task_status" property="taskStatus"/>
+        <result column="assign_by" property="assignBy"/>
+        <result column="assign_by_name" property="assignByName"/>
+        <result column="assign_time" property="assignTime"/>
+        <result column="detect_person_id" property="detectPersonId"/>
+        <result column="detect_person_name" property="detectPersonName"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="remark" property="remark"/>
+        <result column="process_instance_id" property="processInstanceId"/>
+        <result column="detect_item_count" property="detectItemCount"/>
+        <result column="completed_item_count" property="completedItemCount"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="create_by" property="createBy"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <select id="selectTaskPage" resultMap="BaseResultMap">
+        SELECT * FROM detect_task
+        <where>
+            deleted = 0
+            <if test="query.taskCode != null and query.taskCode != ''">
+                AND task_code LIKE CONCAT('%', #{query.taskCode}, '%')
+            </if>
+            <if test="query.taskName != null and query.taskName != ''">
+                AND task_name LIKE CONCAT('%', #{query.taskName}, '%')
+            </if>
+            <if test="query.taskStatus != null and query.taskStatus != ''">
+                AND task_status = #{query.taskStatus}
+            </if>
+            <if test="query.taskType != null and query.taskType != ''">
+                AND task_type = #{query.taskType}
+            </if>
+            <if test="query.priority != null and query.priority != ''">
+                AND priority = #{query.priority}
+            </if>
+            <if test="query.detectPersonId != null">
+                AND detect_person_id = #{query.detectPersonId}
+            </if>
+            <if test="query.sampleId != null">
+                AND sample_id = #{query.sampleId}
+            </if>
+            <if test="query.sampleCode != null and query.sampleCode != ''">
+                AND sample_code LIKE CONCAT('%', #{query.sampleCode}, '%')
+            </if>
+            <if test="query.startDate != null and query.startDate != ''">
+                AND create_time >= #{query.startDate}
+            </if>
+            <if test="query.endDate != null and query.endDate != ''">
+                AND create_time <= CONCAT(#{query.endDate}, ' 23:59:59')
+            </if>
+        </where>
+        ORDER BY
+            CASE priority
+                WHEN 'HIGH' THEN 1
+                WHEN 'MEDIUM' THEN 2
+                WHEN 'LOW' THEN 3
+                ELSE 4
+            END ASC,
+            create_time DESC
+    </select>
+
+</mapper>

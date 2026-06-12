@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.sample.mapper.SampleMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.sample.entity.Sample">
+        <id column="id" property="id"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="sample_name" property="sampleName"/>
+        <result column="batch_no" property="batchNo"/>
+        <result column="manufacturer" property="manufacturer"/>
+        <result column="production_date" property="productionDate"/>
+        <result column="shelf_life" property="shelfLife"/>
+        <result column="sample_location" property="sampleLocation"/>
+        <result column="sample_method" property="sampleMethod"/>
+        <result column="sample_time" property="sampleTime"/>
+        <result column="sample_person" property="samplePerson"/>
+        <result column="sample_amount" property="sampleAmount"/>
+        <result column="sample_unit" property="sampleUnit"/>
+        <result column="sample_status" property="sampleStatus"/>
+        <result column="sync_status" property="syncStatus"/>
+        <result column="offline_id" property="offlineId"/>
+        <result column="device_id" property="deviceId"/>
+        <result column="detect_item_count" property="detectItemCount"/>
+        <result column="remark" property="remark"/>
+        <result column="attach_file" property="attachFile"/>
+        <result column="bar_code" property="barCode"/>
+        <result column="qr_code" property="qrCode"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="create_by" property="createBy"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <select id="selectSamplePage" resultMap="BaseResultMap">
+        SELECT * FROM sample_info
+        <where>
+            deleted = 0
+            <if test="sampleName != null and sampleName != ''">
+                AND sample_name LIKE CONCAT('%', #{sampleName}, '%')
+            </if>
+            <if test="sampleCode != null and sampleCode != ''">
+                AND sample_code LIKE CONCAT('%', #{sampleCode}, '%')
+            </if>
+            <if test="sampleStatus != null and sampleStatus != ''">
+                AND sample_status = #{sampleStatus}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND create_time >= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND create_time <= CONCAT(#{endDate}, ' 23:59:59')
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>

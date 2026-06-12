@@ -1,0 +1,46 @@
+name: food_lab_lims
+description: 食品检测LIMS移动端应用
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  get: ^4.6.6
+  dio: ^5.4.0
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  shared_preferences: ^2.2.2
+  json_annotation: ^4.8.1
+  intl: ^0.18.1
+  logger: ^2.0.2+1
+  flutter_screenutil: ^5.9.0
+  fluttertoast: ^8.2.4
+  image_picker: ^1.0.4
+  camera: ^0.10.5+5
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^3.5.5
+  esc_pos_printer: ^4.1.0
+  esc_pos_utils: ^1.1.0
+  connectivity_plus: ^5.0.1
+  flutter_smart_dialog: ^4.9.5+2
+  easy_refresh: ^3.3.4
+  flutter_form_builder: ^9.1.1
+  form_builder_validators: ^9.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  build_runner: ^2.4.6
+  json_serializable: ^6.7.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/

@@ -1,0 +1,74 @@
+package com.foodlab.audit.controller;
+
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.foodlab.audit.dto.AuditQueryDTO;
+import com.foodlab.audit.dto.AuditSubmitDTO;
+import com.foodlab.audit.entity.AuditRecord;
+import com.foodlab.audit.service.AuditService;
+import com.foodlab.audit.vo.AuditRecordVO;
+import com.foodlab.common.result.PageResult;
+import com.foodlab.common.result.Result;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@Tag(name = "审核管理", description = "两级审核流程管理")
+@RestController
+@RequestMapping("/api/audit")
+@RequiredArgsConstructor
+public class AuditController {
+
+    private final AuditService auditService;
+
+    @Operation(summary = "提交审核")
+    @PostMapping("/submit")
+    public Result<Void> submitAudit(@RequestBody AuditSubmitDTO dto,
+                                    @RequestHeader("userId") Long userId,
+                                    @RequestHeader("userName") String userName) {
+        auditService.submitAudit(dto, userId, userName);
+        return Result.success();
+    }
+
+    @Operation(summary = "发起审核")
+    @PostMapping("/start")
+    public Result<Void> startAudit(@RequestParam String businessType,
+                                   @RequestParam Long businessId,
+                                   @RequestParam String businessCode,
+                                   @RequestHeader("userId") Long userId) {
+        auditService.startAudit(businessType, businessId, businessCode, userId);
+        return Result.success();
+    }
+
+    @Operation(summary = "获取审核详情")
+    @GetMapping("/{id}")
+    public Result<AuditRecordVO> getAuditDetail(@PathVariable Long id) {
+        return Result.success(auditService.getAuditDetail(id));
+    }
+
+    @Operation(summary = "获取业务审核历史")
+    @GetMapping("/history")
+    public Result<List<AuditRecordVO>> getAuditHistory(
+            @RequestParam String businessType,
+            @RequestParam Long businessId) {
+        return Result.success(auditService.getAuditHistory(businessType, businessId));
+    }
+
+    @Operation(summary = "分页查询审核记录")
+    @GetMapping("/page")
+    public Result<PageResult<AuditRecord>> getAuditPage(
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize,
+            AuditQueryDTO queryDTO) {
+        IPage<AuditRecord> page = auditService.getAuditPage(pageNum, pageSize, queryDTO);
+        return Result.success(PageResult.of(page));
+    }
+
+    @Operation(summary = "获取我的待审核列表")
+    @GetMapping("/my-pending")
+    public Result<List<AuditRecordVO>> getMyPendingAudits(@RequestHeader("userId") Long userId) {
+        return Result.success(auditService.getMyPendingAudits(userId));
+    }
+}

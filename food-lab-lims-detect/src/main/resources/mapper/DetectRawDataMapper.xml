@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.detect.mapper.DetectRawDataMapper">
+
+    <insert id="insertBatch" parameterType="java.util.List">
+        INSERT INTO detect_raw_data (result_id, sample_id, detect_item_id, data_key, data_value, data_type, sort, remark, create_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.resultId}, #{item.sampleId}, #{item.detectItemId}, #{item.dataKey}, #{item.dataValue},
+             #{item.dataType}, #{item.sort}, #{item.remark}, #{item.createTime})
+        </foreach>
+    </insert>
+
+    <delete id="deleteByResultId">
+        DELETE FROM detect_raw_data WHERE result_id = #{resultId}
+    </delete>
+
+</mapper>

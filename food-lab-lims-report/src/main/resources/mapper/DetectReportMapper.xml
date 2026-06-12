@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.report.mapper.DetectReportMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.report.entity.DetectReport">
+        <id column="id" property="id"/>
+        <result column="report_code" property="reportCode"/>
+        <result column="report_name" property="reportName"/>
+        <result column="report_type" property="reportType"/>
+        <result column="template_id" property="templateId"/>
+        <result column="sample_id" property="sampleId"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="task_id" property="taskId"/>
+        <result column="report_content" property="reportContent"/>
+        <result column="report_file_path" property="reportFilePath"/>
+        <result column="report_status" property="reportStatus"/>
+        <result column="issue_date" property="issueDate"/>
+        <result column="expire_date" property="expireDate"/>
+        <result column="issuer_id" property="issuerId"/>
+        <result column="issuer_name" property="issuerName"/>
+        <result column="seal_status" property="sealStatus"/>
+        <result column="seal_file_path" property="sealFilePath"/>
+        <result column="download_count" property="downloadCount"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectReportPage" resultMap="BaseResultMap">
+        SELECT * FROM detect_report
+        <where>
+            deleted = 0
+            <if test="reportCode != null and reportCode != ''">
+                AND report_code LIKE CONCAT('%', #{reportCode}, '%')
+            </if>
+            <if test="sampleCode != null and sampleCode != ''">
+                AND sample_code LIKE CONCAT('%', #{sampleCode}, '%')
+            </if>
+            <if test="reportStatus != null and reportStatus != ''">
+                AND report_status = #{reportStatus}
+            </if>
+            <if test="reportType != null and reportType != ''">
+                AND report_type = #{reportType}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND create_time &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND create_time &lt;= CONCAT(#{endDate}, ' 23:59:59')
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>

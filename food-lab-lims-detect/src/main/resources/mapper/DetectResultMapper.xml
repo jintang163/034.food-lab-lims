@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.detect.mapper.DetectResultMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.detect.entity.DetectResult">
+        <id column="id" property="id"/>
+        <result column="result_code" property="resultCode"/>
+        <result column="task_id" property="taskId"/>
+        <result column="sample_id" property="sampleId"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="detect_item_id" property="detectItemId"/>
+        <result column="detect_item_name" property="detectItemName"/>
+        <result column="detect_method" property="detectMethod"/>
+        <result column="detect_standard" property="detectStandard"/>
+        <result column="instrument" property="instrument"/>
+        <result column="detect_time" property="detectTime"/>
+        <result column="detect_person_id" property="detectPersonId"/>
+        <result column="detect_person_name" property="detectPersonName"/>
+        <result column="result_type" property="resultType"/>
+        <result column="result_value" property="resultValue"/>
+        <result column="result_unit" property="resultUnit"/>
+        <result column="qualitative_result" property="qualitativeResult"/>
+        <result column="limit_type" property="limitType"/>
+        <result column="limit_value_min" property="limitValueMin"/>
+        <result column="limit_value_max" property="limitValueMax"/>
+        <result column="auto_judge" property="autoJudge"/>
+        <result column="manual_judge" property="manualJudge"/>
+        <result column="final_judge" property="finalJudge"/>
+        <result column="calculate_formula" property="calculateFormula"/>
+        <result column="remark" property="remark"/>
+        <result column="attach_files" property="attachFiles"/>
+        <result column="is_audit" property="isAudit"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectResultPage" resultMap="BaseResultMap">
+        SELECT * FROM detect_result
+        <where>
+            deleted = 0
+            <if test="sampleCode != null and sampleCode != ''">
+                AND sample_code LIKE CONCAT('%', #{sampleCode}, '%')
+            </if>
+            <if test="detectItemName != null and detectItemName != ''">
+                AND detect_item_name LIKE CONCAT('%', #{detectItemName}, '%')
+            </if>
+            <if test="finalJudge != null and finalJudge != ''">
+                AND final_judge = #{finalJudge}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND create_time &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND create_time &lt;= CONCAT(#{endDate}, ' 23:59:59')
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>
