@@ -41,4 +41,25 @@ class ApiConfig {
   static const String reportPreview = '/report/preview';
   static const String reportExport = '/report/export';
   static const String reportIssue = '/report/issue';
+
+  static const String formTemplateList = '/form/template/page';
+  static const String formTemplateDetail = '/form/template';
+  static const String formTemplateByCode = '/form/template/code';
+  static const String formTemplateSchema = '/form/template/schema';
+
+  static const String formDataSave = '/form/data/save';
+  static const String formDataSubmit = '/form/data/submit';
+  static const String formDataDetail = '/form/data';
+  static const String formDataList = '/form/data/page';
+  static const String formDataSync = '/form/data/sync';
+  static const String formDataBatchSync = '/form/data/batch-sync';
+
+  static const String formDraftSave = '/form/draft/save';
+  static const String formDraftGet = '/form/draft';
+  static const String formDraftDelete = '/form/draft';
+  static const String formDraftList = '/form/draft/page';
+
+  static const String formFileUpload = '/form/file/upload';
+  static const String formFileDownload = '/form/file/download';
+  static const String formFileDelete = '/form/file';
 }

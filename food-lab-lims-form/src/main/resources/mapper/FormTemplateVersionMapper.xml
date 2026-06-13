@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.form.mapper.FormTemplateVersionMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.form.entity.FormTemplateVersion">
+        <id column="id" property="id"/>
+        <result column="template_id" property="templateId"/>
+        <result column="template_code" property="templateCode"/>
+        <result column="template_name" property="templateName"/>
+        <result column="detect_item_id" property="detectItemId"/>
+        <result column="form_schema" property="formSchema"/>
+        <result column="version" property="version"/>
+        <result column="change_type" property="changeType"/>
+        <result column="change_summary" property="changeSummary"/>
+        <result column="change_detail" property="changeDetail"/>
+        <result column="publish_time" property="publishTime"/>
+        <result column="published_by" property="publishedBy"/>
+        <result column="previous_version_id" property="previousVersionId"/>
+        <result column="next_version_id" property="nextVersionId"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+</mapper>

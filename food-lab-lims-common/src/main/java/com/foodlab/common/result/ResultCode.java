@@ -43,7 +43,16 @@ public enum ResultCode {
     FILE_UPLOAD_FAIL(7001, "文件上传失败"),
     FILE_DOWNLOAD_FAIL(7002, "文件下载失败"),
 
-    DATA_SYNC_FAIL(8001, "数据同步失败");
+    DATA_SYNC_FAIL(8001, "数据同步失败"),
+
+    FORM_TEMPLATE_NOT_FOUND(9001, "表单模板不存在"),
+    FORM_TEMPLATE_VERSION_NOT_FOUND(9002, "表单模板版本不存在"),
+    FORM_DATA_NOT_FOUND(9003, "表单数据不存在"),
+    FORM_SCHEMA_INVALID(9004, "表单Schema格式无效"),
+    FORM_DATA_INVALID(9005, "表单数据验证失败"),
+    FORM_TEMPLATE_STATUS_ERROR(9006, "表单模板状态错误"),
+    FORM_VERSION_EXIST(9007, "表单版本已存在"),
+    MIGRATION_NOT_FOUND(9008, "迁移记录不存在");
 
     private final Integer code;
     private final String message;

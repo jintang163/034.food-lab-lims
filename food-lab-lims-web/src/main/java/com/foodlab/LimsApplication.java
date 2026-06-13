@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @SpringBootApplication
 @EnableAsync
 @EnableTransactionManagement
-@MapperScan(basePackages = {"com.foodlab.**.mapper"})
 public class LimsApplication {
 
     public static void main(String[] args) {

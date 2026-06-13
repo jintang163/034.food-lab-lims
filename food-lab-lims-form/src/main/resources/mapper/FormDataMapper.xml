@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.form.mapper.FormDataMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.form.entity.FormData">
+        <id column="id" property="id"/>
+        <result column="data_code" property="dataCode"/>
+        <result column="template_id" property="templateId"/>
+        <result column="template_code" property="templateCode"/>
+        <result column="template_version" property="templateVersion"/>
+        <result column="detect_item_id" property="detectItemId"/>
+        <result column="sample_id" property="sampleId"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="task_id" property="taskId"/>
+        <result column="form_data" property="formData"/>
+        <result column="submit_time" property="submitTime"/>
+        <result column="submitted_by" property="submittedBy"/>
+        <result column="submitted_by_name" property="submittedByName"/>
+        <result column="status" property="status"/>
+        <result column="sync_status" property="syncStatus"/>
+        <result column="offline_id" property="offlineId"/>
+        <result column="device_id" property="deviceId"/>
+        <result column="remark" property="remark"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectDataPage" resultMap="BaseResultMap">
+        SELECT * FROM form_data
+        <where>
+            deleted = 0
+            <if test="templateId != null">
+                AND template_id = #{templateId}
+            </if>
+            <if test="sampleId != null">
+                AND sample_id = #{sampleId}
+            </if>
+            <if test="taskId != null">
+                AND task_id = #{taskId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>

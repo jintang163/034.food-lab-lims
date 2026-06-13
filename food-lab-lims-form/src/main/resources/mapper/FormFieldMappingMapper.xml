@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.form.mapper.FormFieldMappingMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.form.entity.FormFieldMapping">
+        <id column="id" property="id"/>
+        <result column="template_id" property="templateId"/>
+        <result column="template_code" property="templateCode"/>
+        <result column="field_key" property="fieldKey"/>
+        <result column="field_label" property="fieldLabel"/>
+        <result column="field_type" property="fieldType"/>
+        <result column="business_table" property="businessTable"/>
+        <result column="business_column" property="businessColumn"/>
+        <result column="is_result_field" property="isResultField"/>
+        <result column="is_required" property="isRequired"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+</mapper>

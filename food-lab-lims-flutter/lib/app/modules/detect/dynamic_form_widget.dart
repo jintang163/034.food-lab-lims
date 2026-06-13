@@ -1,12 +1,29 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_form_builder/flutter_form_builder.dart';
 
-class DynamicFormWidget extends StatelessWidget {
+import '../../widgets/form/form_field_builder.dart';
+import '../../widgets/form/form_builder_dynamic.dart';
+import '../../widgets/form/json_dynamic_form.dart';
+import '../../models/form_template_model.dart';
+import '../../models/form_data_model.dart';
+import '../../models/form_field_model.dart';
+import '../../services/form_service.dart';
+
+class DynamicFormWidget extends StatefulWidget {
   final List<Map<String, dynamic>> schema;
   final Map<String, dynamic> formData;
   final String judgeStatus;
   final Function(String key, dynamic value) onChanged;
+  final Function(Map<String, dynamic> data)? onSubmitted;
+  final bool autoSaveDraft;
+  final String? draftKey;
+  final bool readOnly;
+  final String renderEngine;
+  final Map<String, dynamic>? fieldJudgeStatus;
+  final String? formTemplateCode;
 
   const DynamicFormWidget({
     super.key,
@@ -14,302 +31,253 @@ class DynamicFormWidget extends StatelessWidget {
     required this.formData,
     required this.judgeStatus,
     required this.onChanged,
+    this.onSubmitted,
+    this.autoSaveDraft = true,
+    this.draftKey,
+    this.readOnly = false,
+    this.renderEngine = 'form_builder',
+    this.fieldJudgeStatus,
+    this.formTemplateCode,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: schema.length,
-      itemBuilder: (context, index) {
-        final field = schema[index];
-        return _buildField(field);
-      },
+  State<DynamicFormWidget> createState() => _DynamicFormWidgetState();
+}
+
+class _DynamicFormWidgetState extends State<DynamicFormWidget> {
+  final _formKey = GlobalKey<FormBuilderState>();
+  final Map<String, dynamic> _errors = {};
+  Timer? _autoSaveTimer;
+  FormTemplateModel? _template;
+  FormDataModel? _formDataModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTemplate();
+    _initFormDataModel();
+    if (widget.autoSaveDraft && widget.draftKey != null) {
+      _startAutoSave();
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSaveTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initTemplate() {
+    final fields = widget.schema
+        .map((e) => FormFieldModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+
+    _template = FormTemplateModel(
+      templateCode: widget.formTemplateCode ?? 'detect_form',
+      templateName: '检测表单',
+      fields: fields,
+      renderEngine: widget.renderEngine,
+      enableAutoSave: widget.autoSaveDraft,
+      autoSaveInterval: 30,
+      enableDraft: widget.autoSaveDraft,
+      enableOffline: true,
     );
   }
 
-  Widget _buildField(Map<String, dynamic> field) {
-    final type = field['type'] as String;
-    final key = field['key'] as String;
-    final label = field['label'] as String;
-    final required = field['required'] as bool? ?? false;
-    final resultType = field['resultType'] as String?;
+  void _initFormDataModel() {
+    _formDataModel = FormDataModel(
+      templateCode: widget.formTemplateCode ?? 'detect_form',
+      formData: Map<String, dynamic>.from(widget.formData),
+      fieldJudgeStatus: widget.fieldJudgeStatus != null
+          ? Map<String, dynamic>.from(widget.fieldJudgeStatus!)
+          : {},
+      judgeStatus: widget.judgeStatus,
+      formStatus: 'draft',
+      syncStatus: 'pending',
+      draftKey: widget.draftKey,
+    );
+  }
 
-    final isResultField = resultType != null;
-    final isUnqualified = isResultField && judgeStatus == 'unqualified';
-    final isQualified = isResultField && judgeStatus == 'qualified';
+  void _startAutoSave() {
+    _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _autoSaveDraft();
+    });
+  }
 
-    Color? borderColor;
-    Color? fillColor;
-    if (isUnqualified) {
-      borderColor = Colors.red;
-      fillColor = Colors.red.withOpacity(0.1);
-    } else if (isQualified) {
-      borderColor = Colors.green;
-      fillColor = Colors.green.withOpacity(0.1);
+  Future<void> _autoSaveDraft() async {
+    if (widget.draftKey == null || _formDataModel == null) return;
+
+    try {
+      final formService = Get.find<FormService>();
+      _formDataModel!.formData = Map<String, dynamic>.from(widget.formData);
+      await formService.saveDraft(widget.draftKey!, _formDataModel!);
+    } catch (e) {
+      // 静默失败，不影响用户
     }
+  }
+
+  bool validateForm() {
+    _errors.clear();
+    bool isValid = true;
+
+    for (var fieldJson in widget.schema) {
+      final field = FormFieldModel.fromJson(Map<String, dynamic>.from(fieldJson));
+      if (field.key != null && !field.isHidden) {
+        final value = widget.formData[field.key!];
+        final error = FormFieldBuilder.validateField(field, value);
+        if (error != null) {
+          _errors[field.key!] = error;
+          isValid = false;
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
+
+    return isValid;
+  }
+
+  void submitForm() {
+    if (!validateForm()) {
+      Get.snackbar('验证失败', '请检查表单填写是否正确');
+      return;
+    }
+
+    widget.onSubmitted?.call(Map<String, dynamic>.from(widget.formData));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.renderEngine == 'json_dynamic' && _template != null) {
+      return JsonDynamicForm(
+        template: _template!,
+        initialData: _formDataModel,
+        onChanged: (data) {
+          widget.onChanged('formData', data.formData);
+          _formDataModel = data;
+        },
+        onSubmitted: (data) {
+          widget.onSubmitted?.call(data.formData ?? {});
+        },
+        readOnly: widget.readOnly,
+        showSubmitButton: false,
+      );
+    }
+
+    if (widget.renderEngine == 'form_builder' && _template != null) {
+      return FormBuilderDynamic(
+        template: _template!,
+        initialData: _formDataModel,
+        onChanged: (data) {
+          if (data.formData != null) {
+            for (var entry in data.formData!.entries) {
+              widget.onChanged(entry.key, entry.value);
+            }
+          }
+          _formDataModel = data;
+        },
+        onSubmitted: (data) {
+          widget.onSubmitted?.call(data.formData ?? {});
+        },
+        readOnly: widget.readOnly,
+        showSubmitButton: false,
+      );
+    }
+
+    return _buildLegacyForm();
+  }
+
+  Widget _buildLegacyForm() {
+    return FormBuilder(
+      key: _formKey,
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: widget.schema.length,
+        itemBuilder: (context, index) {
+          final fieldJson = widget.schema[index];
+          final field = FormFieldModel.fromJson(Map<String, dynamic>.from(fieldJson));
+
+          if (field.isHidden) return const SizedBox.shrink();
+
+          final fieldWithStatus = FormFieldModel.fromJson(field.toJson());
+          if (widget.fieldJudgeStatus != null) {
+            fieldWithStatus.judgeStatus =
+                widget.fieldJudgeStatus![field.key] as String?;
+          } else if (field.isResultField) {
+            fieldWithStatus.judgeStatus = widget.judgeStatus;
+          }
+
+          return FormFieldBuilder.buildField(
+            field: fieldWithStatus,
+            formData: widget.formData,
+            onChanged: widget.onChanged,
+            errors: _errors,
+            readOnly: widget.readOnly,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget buildSubmitButton({String? text, VoidCallback? onPressed}) {
+    return SizedBox(
+      height: 48.h,
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressed ?? submitForm,
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.r),
+          ),
+        ),
+        child: Text(
+          text ?? '提交',
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildJudgeResultBanner() {
+    if (widget.judgeStatus.isEmpty) return const SizedBox.shrink();
+
+    final isQualified = widget.judgeStatus == 'qualified';
+    final bgColor = isQualified ? Colors.green : Colors.red;
+    final icon = isQualified ? Icons.check_circle : Icons.error;
+    final text = isQualified ? '合格' : '不合格';
 
     return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       margin: EdgeInsets.only(bottom: 16.h),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[800],
-                ),
-              ),
-              if (required)
-                Text(
-                  ' *',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    color: Colors.red,
-                  ),
-                ),
-            ],
+          Icon(
+            icon,
+            color: Colors.white,
+            size: 20.sp,
           ),
-          SizedBox(height: 8.h),
-          Container(
-            decoration: BoxDecoration(
-              color: fillColor,
-              borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(
-                color: borderColor ?? Colors.grey[300]!,
-                width: 1.w,
-              ),
+          SizedBox(width: 8.w),
+          Text(
+            '判定结果：$text',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
             ),
-            child: _buildInputWidget(field, key, borderColor),
           ),
-          if (field['description'] != null)
-            Padding(
-              padding: EdgeInsets.only(top: 4.h),
-              child: Text(
-                field['description'] as String,
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: Colors.grey[500],
-                ),
-              ),
-            ),
-          if (isResultField && field['unit'] != null)
-            Padding(
-              padding: EdgeInsets.only(top: 4.h),
-              child: Text(
-                '单位: ${field['unit']}',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: Colors.grey[500],
-                ),
-              ),
-            ),
         ],
       ),
-    );
-  }
-
-  Widget _buildInputWidget(
-    Map<String, dynamic> field,
-    String key,
-    Color? borderColor,
-  ) {
-    final type = field['type'] as String;
-
-    switch (type) {
-      case 'number':
-        return _buildNumberInput(field, key);
-      case 'select':
-        return _buildSelectInput(field, key);
-      case 'text':
-        return _buildTextInput(field, key);
-      case 'textarea':
-        return _buildTextareaInput(field, key);
-      case 'date':
-        return _buildDateInput(field, key);
-      default:
-        return _buildTextInput(field, key);
-    }
-  }
-
-  Widget _buildNumberInput(Map<String, dynamic> field, String key) {
-    final min = field['min'] as num?;
-    final max = field['max'] as num?;
-    final precision = field['precision'] as int?;
-    final unit = field['unit'] as String?;
-
-    return TextFormField(
-      initialValue: formData[key]?.toString(),
-      keyboardType: TextInputType.numberWithOptions(
-        decimal: precision != null && precision > 0,
-        signed: false,
-      ),
-      decoration: InputDecoration(
-        hintText: field['placeholder'] as String? ?? '请输入数值',
-        suffixText: unit,
-        suffixStyle: TextStyle(
-          fontSize: 14.sp,
-          color: Colors.grey[500],
-        ),
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 12.w,
-          vertical: 12.h,
-        ),
-      ),
-      onChanged: (value) {
-        final numValue = double.tryParse(value);
-        onChanged(key, numValue);
-      },
-      validator: (value) {
-        if (field['required'] == true && (value == null || value.isEmpty)) {
-          return '请输入${field['label']}';
-        }
-        if (value != null && value.isNotEmpty) {
-          final numValue = double.tryParse(value);
-          if (numValue == null) {
-            return '请输入有效的数值';
-          }
-          if (min != null && numValue < min) {
-            return '数值不能小于$min';
-          }
-          if (max != null && numValue > max) {
-            return '数值不能大于$max';
-          }
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildSelectInput(Map<String, dynamic> field, String key) {
-    final options = List<Map<String, dynamic>>.from(field['options'] ?? []);
-    final currentValue = formData[key];
-
-    return DropdownButtonFormField<dynamic>(
-      value: currentValue,
-      decoration: InputDecoration(
-        hintText: field['placeholder'] as String? ?? '请选择',
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 12.w,
-          vertical: 12.h,
-        ),
-      ),
-      items: options.map((option) {
-        return DropdownMenuItem<dynamic>(
-          value: option['value'],
-          child: Text(
-            option['label'] as String,
-            style: TextStyle(
-              fontSize: 14.sp,
-              color: Colors.grey[800],
-            ),
-          ),
-        );
-      }).toList(),
-      onChanged: (value) {
-        onChanged(key, value);
-      },
-      validator: (value) {
-        if (field['required'] == true && value == null) {
-          return '请选择${field['label']}';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildTextInput(Map<String, dynamic> field, String key) {
-    return TextFormField(
-      initialValue: formData[key]?.toString(),
-      keyboardType: TextInputType.text,
-      decoration: InputDecoration(
-        hintText: field['placeholder'] as String? ?? '请输入',
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 12.w,
-          vertical: 12.h,
-        ),
-      ),
-      onChanged: (value) {
-        onChanged(key, value);
-      },
-      validator: (value) {
-        if (field['required'] == true && (value == null || value.isEmpty)) {
-          return '请输入${field['label']}';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildTextareaInput(Map<String, dynamic> field, String key) {
-    return TextFormField(
-      initialValue: formData[key]?.toString(),
-      keyboardType: TextInputType.multiline,
-      maxLines: field['maxLines'] as int? ?? 4,
-      decoration: InputDecoration(
-        hintText: field['placeholder'] as String? ?? '请输入',
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 12.w,
-          vertical: 12.h,
-        ),
-      ),
-      onChanged: (value) {
-        onChanged(key, value);
-      },
-      validator: (value) {
-        if (field['required'] == true && (value == null || value.isEmpty)) {
-          return '请输入${field['label']}';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildDateInput(Map<String, dynamic> field, String key) {
-    return TextFormField(
-      initialValue: formData[key]?.toString(),
-      keyboardType: TextInputType.datetime,
-      readOnly: true,
-      decoration: InputDecoration(
-        hintText: field['placeholder'] as String? ?? '请选择日期',
-        suffixIcon: Icon(
-          Icons.calendar_today,
-          size: 20.sp,
-          color: Colors.grey[500],
-        ),
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 12.w,
-          vertical: 12.h,
-        ),
-      ),
-      onTap: () async {
-        final date = await showDatePicker(
-          context: Get.context!,
-          initialDate: DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-        );
-        if (date != null) {
-          final dateStr = date.toIso8601String().split('T').first;
-          onChanged(key, dateStr);
-        }
-      },
-      validator: (value) {
-        if (field['required'] == true && (value == null || value.isEmpty)) {
-          return '请选择${field['label']}';
-        }
-        return null;
-      },
     );
   }
 }

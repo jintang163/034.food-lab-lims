@@ -111,6 +111,38 @@ const routes = [
     ]
   },
   {
+    path: '/form',
+    component: Layout,
+    redirect: '/form/template/list',
+    meta: { title: '表单管理', icon: 'EditPen', requiresAuth: true },
+    children: [
+      {
+        path: 'template/list',
+        name: 'FormTemplateList',
+        component: () => import('@/views/form/template/index.vue'),
+        meta: { title: '模板列表', icon: 'List', requiresAuth: true }
+      },
+      {
+        path: 'template/designer',
+        name: 'FormDesigner',
+        component: () => import('@/views/form/template/designer.vue'),
+        meta: { title: '表单设计器', icon: 'Edit', requiresAuth: true, hidden: true }
+      },
+      {
+        path: 'data',
+        name: 'FormDataList',
+        component: () => import('@/views/form/data/index.vue'),
+        meta: { title: '数据列表', icon: 'DataLine', requiresAuth: true }
+      },
+      {
+        path: 'version',
+        name: 'FormVersionList',
+        component: () => import('@/views/form/version/index.vue'),
+        meta: { title: '版本管理', icon: 'Clock', requiresAuth: true, hidden: true }
+      }
+    ]
+  },
+  {
     path: '/system',
     component: Layout,
     redirect: '/system/user',

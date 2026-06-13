@@ -31,6 +31,9 @@ dependencies:
   easy_refresh: ^3.3.4
   flutter_form_builder: ^9.1.1
   form_builder_validators: ^9.1.0
+  json_dynamic_widget: ^7.0.0
+  json_theme: ^6.0.0
+  file_picker: ^6.1.1
 
 dev_dependencies:
   flutter_test:

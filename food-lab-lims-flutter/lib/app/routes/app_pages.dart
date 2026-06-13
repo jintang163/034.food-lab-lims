@@ -12,6 +12,8 @@ import '../modules/login/login_binding.dart';
 import '../modules/login/login_view.dart';
 import '../modules/offline/offline_binding.dart';
 import '../modules/offline/offline_view.dart';
+import '../modules/form/form_binding.dart';
+import '../modules/form/form_view.dart';
 
 class AppPages {
   static const initial = Routes.login;
@@ -52,6 +54,11 @@ class AppPages {
       page: () => const OfflineView(),
       binding: OfflineBinding(),
     ),
+    GetPage(
+      name: Routes.form,
+      page: () => const FormView(),
+      binding: FormBinding(),
+    ),
   ];
 }
 
@@ -63,4 +70,5 @@ class Routes {
   static const task = '/task';
   static const detect = '/detect';
   static const offline = '/offline';
+  static const form = '/form';
 }
