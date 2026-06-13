@@ -143,6 +143,20 @@ const routes = [
     ]
   },
   {
+    path: '/schedule',
+    component: Layout,
+    redirect: '/schedule/gantt',
+    meta: { title: '智能排程', icon: 'Calendar', requiresAuth: true },
+    children: [
+      {
+        path: 'gantt',
+        name: 'ScheduleGantt',
+        component: () => import('@/views/schedule/index.vue'),
+        meta: { title: '排程甘特图', icon: 'Histogram', requiresAuth: true }
+      }
+    ]
+  },
+  {
     path: '/system',
     component: Layout,
     redirect: '/system/user',

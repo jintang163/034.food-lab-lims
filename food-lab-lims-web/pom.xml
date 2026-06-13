@@ -46,6 +46,10 @@
             <groupId>com.foodlab</groupId>
             <artifactId>food-lab-lims-report</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.foodlab</groupId>
+            <artifactId>food-lab-lims-schedule</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.flowable</groupId>

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.schedule.mapper.ScheduleResultMapper">
+
+    <resultMap id="ScheduleResultVOMap" type="com.foodlab.schedule.vo.ScheduleResultVO">
+        <id column="id" property="id"/>
+        <result column="schedule_batch_no" property="scheduleBatchNo"/>
+        <result column="task_id" property="taskId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="sample_id" property="sampleId"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="detect_item_id" property="detectItemId"/>
+        <result column="detect_item_name" property="detectItemName"/>
+        <result column="instrument_id" property="instrumentId"/>
+        <result column="instrument_name" property="instrumentName"/>
+        <result column="detect_person_id" property="detectPersonId"/>
+        <result column="detect_person_name" property="detectPersonName"/>
+        <result column="schedule_date" property="scheduleDate"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="duration_minutes" property="durationMinutes"/>
+        <result column="priority" property="priority"/>
+        <result column="status" property="status"/>
+        <result column="source" property="source"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="selectScheduleList" resultMap="ScheduleResultVOMap">
+        SELECT
+            sr.id,
+            sr.schedule_batch_no,
+            sr.task_id,
+            sr.task_code,
+            sr.sample_id,
+            sr.sample_code,
+            sr.detect_item_id,
+            sr.detect_item_name,
+            sr.instrument_id,
+            sr.instrument_name,
+            sr.detect_person_id,
+            sr.detect_person_name,
+            sr.schedule_date,
+            sr.start_time,
+            sr.end_time,
+            sr.duration_minutes,
+            sr.priority,
+            sr.status,
+            sr.source,
+            sr.sort_order,
+            sr.remark,
+            sr.create_time
+        FROM schedule_result sr
+        <where>
+            sr.deleted = 0
+            <if test="query.scheduleBatchNo != null and query.scheduleBatchNo != ''">
+                AND sr.schedule_batch_no = #{query.scheduleBatchNo}
+            </if>
+            <if test="query.taskId != null">
+                AND sr.task_id = #{query.taskId}
+            </if>
+            <if test="query.instrumentId != null">
+                AND sr.instrument_id = #{query.instrumentId}
+            </if>
+            <if test="query.detectPersonId != null">
+                AND sr.detect_person_id = #{query.detectPersonId}
+            </if>
+            <if test="query.scheduleDateStart != null">
+                AND sr.schedule_date &gt;= #{query.scheduleDateStart}
+            </if>
+            <if test="query.scheduleDateEnd != null">
+                AND sr.schedule_date &lt;= #{query.scheduleDateEnd}
+            </if>
+            <if test="query.priority != null and query.priority != ''">
+                AND sr.priority = #{query.priority}
+            </if>
+            <if test="query.statusList != null and query.statusList.size() > 0">
+                AND sr.status IN
+                <foreach collection="query.statusList" item="status" open="(" separator="," close=")">
+                    #{status}
+                </foreach>
+            </if>
+        </where>
+        ORDER BY sr.schedule_date, sr.start_time, sr.sort_order
+    </select>
+
+    <select id="selectByInstrumentAndRange" resultType="com.foodlab.schedule.entity.ScheduleResult">
+        SELECT * FROM schedule_result
+        WHERE instrument_id = #{instrumentId}
+          AND schedule_date BETWEEN #{startDate} AND #{endDate}
+          AND deleted = 0
+          AND status IN ('SCHEDULED', 'IN_PROGRESS')
+        ORDER BY schedule_date, start_time
+    </select>
+
+    <select id="selectByPersonAndRange" resultType="com.foodlab.schedule.entity.ScheduleResult">
+        SELECT * FROM schedule_result
+        WHERE detect_person_id = #{personId}
+          AND schedule_date BETWEEN #{startDate} AND #{endDate}
+          AND deleted = 0
+          AND status IN ('SCHEDULED', 'IN_PROGRESS')
+        ORDER BY schedule_date, start_time
+    </select>
+
+</mapper>
