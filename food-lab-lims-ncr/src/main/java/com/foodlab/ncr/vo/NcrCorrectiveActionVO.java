@@ -13,6 +13,10 @@ public class NcrCorrectiveActionVO {
 
     private String ncrCode;
 
+    private Long sampleId;
+
+    private String sampleCode;
+
     private String actionDescription;
 
     private String actionPlan;

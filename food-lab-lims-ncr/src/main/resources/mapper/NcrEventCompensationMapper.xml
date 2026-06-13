@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.ncr.mapper.NcrEventCompensationMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.ncr.entity.NcrEventCompensation">
+        <id column="id" property="id"/>
+        <result column="event_type" property="eventType"/>
+        <result column="biz_key" property="bizKey"/>
+        <result column="detect_result_id" property="detectResultId"/>
+        <result column="sample_id" property="sampleId"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="detect_item_id" property="detectItemId"/>
+        <result column="detect_item_name" property="detectItemName"/>
+        <result column="task_id" property="taskId"/>
+        <result column="submitter_id" property="submitterId"/>
+        <result column="event_payload" property="eventPayload"/>
+        <result column="retry_count" property="retryCount"/>
+        <result column="max_retry" property="maxRetry"/>
+        <result column="compensation_status" property="compensationStatus"/>
+        <result column="last_error_msg" property="lastErrorMsg"/>
+        <result column="last_retry_time" property="lastRetryTime"/>
+        <result column="next_retry_time" property="nextRetryTime"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+</mapper>

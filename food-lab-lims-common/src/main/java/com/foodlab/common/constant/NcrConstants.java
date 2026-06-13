@@ -27,4 +27,11 @@ public interface NcrConstants {
     String CAUSE_TYPE_METHOD = "method";
     String CAUSE_TYPE_ENVIRONMENT = "environment";
     String CAUSE_TYPE_OTHER = "other";
+
+    String EVENT_TYPE_DETECT_UNQUALIFIED = "detect_unqualified";
+
+    String COMPENSATION_STATUS_PENDING = "pending";
+    String COMPENSATION_STATUS_PROCESSING = "processing";
+    String COMPENSATION_STATUS_SUCCESS = "success";
+    String COMPENSATION_STATUS_FAILED = "failed";
 }

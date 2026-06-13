@@ -209,6 +209,8 @@ public class NcrServiceImpl extends ServiceImpl<NcrRecordMapper, NcrRecord> impl
         NcrCauseAnalysis causeAnalysis = new NcrCauseAnalysis();
         causeAnalysis.setNcrId(dto.getNcrId());
         causeAnalysis.setNcrCode(ncr.getNcrCode());
+        causeAnalysis.setSampleId(ncr.getSampleId());
+        causeAnalysis.setSampleCode(ncr.getSampleCode());
         causeAnalysis.setCauseType(dto.getCauseType());
         causeAnalysis.setCauseDescription(dto.getCauseDescription());
         causeAnalysis.setRootCause(dto.getRootCause());
@@ -247,6 +249,8 @@ public class NcrServiceImpl extends ServiceImpl<NcrRecordMapper, NcrRecord> impl
         NcrCorrectiveAction action = new NcrCorrectiveAction();
         action.setNcrId(dto.getNcrId());
         action.setNcrCode(ncr.getNcrCode());
+        action.setSampleId(ncr.getSampleId());
+        action.setSampleCode(ncr.getSampleCode());
         action.setActionDescription(dto.getActionDescription());
         action.setActionPlan(dto.getActionPlan());
         action.setActionPersonId(dto.getActionPersonId());
@@ -293,6 +297,8 @@ public class NcrServiceImpl extends ServiceImpl<NcrRecordMapper, NcrRecord> impl
         NcrPreventiveAction action = new NcrPreventiveAction();
         action.setNcrId(dto.getNcrId());
         action.setNcrCode(ncr.getNcrCode());
+        action.setSampleId(ncr.getSampleId());
+        action.setSampleCode(ncr.getSampleCode());
         action.setActionDescription(dto.getActionDescription());
         action.setActionPlan(dto.getActionPlan());
         action.setActionPersonId(dto.getActionPersonId());
@@ -316,10 +322,15 @@ public class NcrServiceImpl extends ServiceImpl<NcrRecordMapper, NcrRecord> impl
         ncrPreventiveActionMapper.insert(action);
 
         ncr.setPreventiveActionTime(LocalDateTime.now());
+        ncr.setNcrStatus(NcrConstants.NCR_STATUS_CLOSED);
+        ncr.setCurrentStage(NcrConstants.NCR_STATUS_CLOSED);
+        ncr.setCloseTime(LocalDateTime.now());
+        ncr.setClosePersonId(userId);
+        ncr.setCloseRemark("预防措施完成，自动关闭不合格品流程");
         ncr.setUpdateBy(userId);
         updateById(ncr);
 
-        log.info("提交预防措施成功，NCR编号：{}", ncr.getNcrCode());
+        log.info("提交预防措施成功，自动关闭不合格品流程，NCR编号：{}", ncr.getNcrCode());
         return true;
     }
 

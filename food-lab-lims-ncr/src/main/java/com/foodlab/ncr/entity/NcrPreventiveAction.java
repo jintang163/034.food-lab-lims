@@ -16,6 +16,10 @@ public class NcrPreventiveAction extends BaseEntity {
 
     private String ncrCode;
 
+    private Long sampleId;
+
+    private String sampleCode;
+
     private String actionDescription;
 
     private String actionPlan;

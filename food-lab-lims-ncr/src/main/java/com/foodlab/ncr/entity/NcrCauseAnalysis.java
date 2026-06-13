@@ -16,6 +16,10 @@ public class NcrCauseAnalysis extends BaseEntity {
 
     private String ncrCode;
 
+    private Long sampleId;
+
+    private String sampleCode;
+
     private String causeType;
 
     private String causeDescription;

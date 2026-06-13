@@ -6,6 +6,8 @@
         <id column="id" property="id"/>
         <result column="ncr_id" property="ncrId"/>
         <result column="ncr_code" property="ncrCode"/>
+        <result column="sample_id" property="sampleId"/>
+        <result column="sample_code" property="sampleCode"/>
         <result column="action_description" property="actionDescription"/>
         <result column="action_plan" property="actionPlan"/>
         <result column="action_person_id" property="actionPersonId"/>
