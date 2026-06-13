@@ -29,10 +29,8 @@ class FormController extends GetxController {
   final RxString draftKey = ''.obs;
 
   Timer? _autoSaveTimer;
-  int? _autoSaveInterval;
 
   int? templateId;
-  String? templateCode;
   int? taskId;
   int? sampleId;
   String? sampleCode;
@@ -55,7 +53,6 @@ class FormController extends GetxController {
     final args = Get.arguments;
     if (args is Map<String, dynamic>) {
       templateId = args['templateId'] as int?;
-      templateCode = args['templateCode'] as String?;
       taskId = args['taskId'] as int?;
       sampleId = args['sampleId'] as int?;
       sampleCode = args['sampleCode'] as String?;
@@ -63,34 +60,19 @@ class FormController extends GetxController {
       detectItemName = args['detectItemName'] as String?;
 
       if (templateId != null) {
-        loadFormTemplate(templateId: templateId!);
-      } else if (templateCode != null) {
-        loadFormTemplate(templateCode: templateCode!);
+        loadFormTemplate(templateId!);
+      } else if (detectItemId != null) {
+        loadFormTemplateByDetectItem(detectItemId!);
       }
     }
   }
 
-  Future<void> loadFormTemplate({int? templateId, String? templateCode}) async {
+  Future<void> loadFormTemplate(int tplId) async {
     isLoading.value = true;
     try {
-      FormTemplateModel? loadedTemplate;
-
-      if (templateId != null) {
-        loadedTemplate = await _formService.getFormTemplateById(templateId);
-      } else if (templateCode != null) {
-        loadedTemplate = await _formService.getFormTemplateByCode(templateCode);
-      }
-
+      final loadedTemplate = await _formService.getFormTemplateById(tplId);
       if (loadedTemplate != null) {
-        template.value = loadedTemplate;
-        fields.value = loadedTemplate.fields ?? [];
-        renderEngine.value = loadedTemplate.renderEngine ?? 'form_builder';
-        _autoSaveInterval = loadedTemplate.autoSaveInterval;
-
-        _initDraftKey();
-        await _loadDraft();
-        _initFormData();
-        _startAutoSave();
+        _applyTemplate(loadedTemplate);
       }
     } catch (e) {
       _logger.e('加载表单模板失败: $e');
@@ -100,26 +82,48 @@ class FormController extends GetxController {
     }
   }
 
+  Future<void> loadFormTemplateByDetectItem(int dItemId) async {
+    isLoading.value = true;
+    try {
+      final loadedTemplate = await _formService.getCurrentTemplateByDetectItem(dItemId);
+      if (loadedTemplate != null) {
+        _applyTemplate(loadedTemplate);
+      }
+    } catch (e) {
+      _logger.e('加载表单模板失败: $e');
+      Fluttertoast.showToast(msg: '加载表单失败，请重试');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  void _applyTemplate(FormTemplateModel loadedTemplate) {
+    template.value = loadedTemplate;
+    fields.value = loadedTemplate.parseFields();
+    renderEngine.value = loadedTemplate.renderEngine ?? 'form_builder';
+    _initDraftKey();
+    _loadDraft();
+    _initFormData();
+    _startAutoSave();
+  }
+
   void _initDraftKey() {
     final keyParts = <String>[];
     if (templateId != null) keyParts.add('tpl_$templateId');
     if (taskId != null) keyParts.add('task_$taskId');
     if (sampleId != null) keyParts.add('sample_$sampleId');
-    if (detectItemId != null) keyParts.add('item_$detectItemId');
-
     draftKey.value = keyParts.isNotEmpty ? keyParts.join('_') : 'form_${template.value?.id}';
   }
 
-  Future<void> _loadDraft() async {
-    if (!template.value!.isDraftEnabled) return;
-
+  void _loadDraft() {
     try {
-      final draft = await _formService.getDraft(draftKey.value);
-      if (draft != null) {
-        formData.value = draft;
-        _logger.i('已恢复草稿: ${draftKey.value}');
-        Fluttertoast.showToast(msg: '已恢复上次未提交的草稿');
-      }
+      _formService.getDraftFromLocal(draftKey.value).then((draft) {
+        if (draft != null) {
+          formData.value = draft;
+          _logger.i('已恢复草稿: ${draftKey.value}');
+          Fluttertoast.showToast(msg: '已恢复上次未提交的草稿');
+        }
+      });
     } catch (e) {
       _logger.w('加载草稿失败: $e');
     }
@@ -128,60 +132,49 @@ class FormController extends GetxController {
   void _initFormData() {
     if (formData.value == null) {
       final initialData = <String, dynamic>{};
-      final judgeStatus = <String, dynamic>{};
-
       for (var field in fields) {
         if (field.key != null) {
           initialData[field.key!] = field.defaultValue;
         }
       }
-
       formData.value = FormDataModel(
         templateId: template.value?.id,
         templateCode: template.value?.templateCode,
+        templateVersion: template.value?.version,
         taskId: taskId,
         sampleId: sampleId,
         sampleCode: sampleCode,
         detectItemId: detectItemId,
-        detectItemName: detectItemName,
         formData: initialData,
-        fieldJudgeStatus: judgeStatus,
         formStatus: 'draft',
         syncStatus: 'pending',
-        createTime: DateTime.now().toIso8601String(),
-        draftKey: draftKey.value,
       );
     }
   }
 
   void _startAutoSave() {
-    if (!template.value!.isAutoSaveEnabled) return;
-
-    final interval = _autoSaveInterval ?? 30;
+    if (template.value?.enableAutoSave != true) return;
+    final interval = template.value?.autoSaveInterval ?? 30;
     _autoSaveTimer = Timer.periodic(Duration(seconds: interval), (_) {
-      if (formData.value != null && !formData.value!.isSubmitted) {
+      if (formData.value != null && formData.value!.isDraft) {
         saveDraft();
       }
     });
-
     _logger.i('自动保存已启动，间隔 ${interval}秒');
   }
 
   void updateFieldValue(String key, dynamic value) {
     if (formData.value == null) return;
-
     formData.update((val) {
       val?.formData ??= {};
       val.formData![key] = value;
     });
-
     _autoJudgeField(key, value);
   }
 
   void _autoJudgeField(String key, dynamic value) {
     final field = fields.firstWhereOrNull((f) => f.key == key);
     if (field == null || !field.isResultField) return;
-
     final widgetConfig = field.widgetConfig;
     if (widgetConfig == null) return;
 
@@ -189,47 +182,29 @@ class FormController extends GetxController {
     final limitMin = widgetConfig['limitMin'] as num?;
     final limitMax = widgetConfig['limitMax'] as num?;
     final expectedValue = widgetConfig['expectedValue'];
-
     bool isQualified = false;
 
     if (field.resultType == 'quantitative' && value is num) {
       switch (limitType) {
-        case 'max':
-          isQualified = limitMax != null && value <= limitMax;
-          break;
-        case 'min':
-          isQualified = limitMin != null && value >= limitMin;
-          break;
-        case 'range':
-          isQualified = (limitMin != null && value >= limitMin) &&
-              (limitMax != null && value <= limitMax);
-          break;
-        case 'equal':
-          isQualified = expectedValue != null && value == expectedValue;
-          break;
+        case 'max': isQualified = limitMax != null && value <= limitMax; break;
+        case 'min': isQualified = limitMin != null && value >= limitMin; break;
+        case 'range': isQualified = (limitMin != null && value >= limitMin) && (limitMax != null && value <= limitMax); break;
+        case 'equal': isQualified = expectedValue != null && value == expectedValue; break;
       }
     } else if (field.resultType == 'qualitative') {
       isQualified = expectedValue != null && value == expectedValue;
     }
 
     final status = isQualified ? 'qualified' : 'unqualified';
-    formData.update((val) {
-      val?.fieldJudgeStatus ??= {};
-      val.fieldJudgeStatus![key] = status;
-      val.judgeStatus = status;
-      val.judgeResult = isQualified ? '合格' : '不合格';
-    });
+    field.judgeStatus = status;
   }
 
   Future<bool> saveDraft() async {
-    if (formData.value == null || !template.value!.isDraftEnabled) return false;
-
+    if (formData.value == null) return false;
     isSavingDraft.value = true;
     try {
-      final success = await _formService.saveDraft(draftKey.value, formData.value!);
-      if (success) {
-        _logger.i('草稿已自动保存: ${draftKey.value}');
-      }
+      final success = await _formService.saveDraftToLocal(draftKey.value, formData.value!);
+      if (success) _logger.i('草稿已自动保存: ${draftKey.value}');
       return success;
     } catch (e) {
       _logger.e('保存草稿失败: $e');
@@ -241,14 +216,12 @@ class FormController extends GetxController {
 
   Future<bool> saveFormData() async {
     if (formData.value == null) return false;
-
     isSubmitting.value = true;
     try {
-      formData.value!.formStatus = 'saved';
       final saved = await _formService.saveFormData(formData.value!);
       if (saved != null) {
         formData.value = saved;
-        await _deleteDraft();
+        _formService.deleteDraftFromLocal(draftKey.value);
         Fluttertoast.showToast(msg: '保存成功');
         return true;
       }
@@ -266,15 +239,13 @@ class FormController extends GetxController {
       Fluttertoast.showToast(msg: '请检查表单填写是否正确');
       return false;
     }
-
     if (formData.value == null) return false;
-
     isSubmitting.value = true;
     try {
       final submitted = await _formService.submitFormData(formData.value!);
       if (submitted != null) {
         formData.value = submitted;
-        await _deleteDraft();
+        _formService.deleteDraftFromLocal(draftKey.value);
         _autoSaveTimer?.cancel();
         return true;
       }
@@ -288,33 +259,22 @@ class FormController extends GetxController {
   }
 
   bool _validateForm() {
-    bool isValid = true;
     for (var field in fields) {
-      if (field.key != null && !field.isHidden) {
+      if (field.key != null && field.isRequired && !field.isHidden) {
         final value = formData.value?.formData?[field.key!];
-        final error = FormFieldBuilder.validateField(field, value);
-        if (error != null) {
-          isValid = false;
-          Fluttertoast.showToast(msg: error);
-          break;
+        if (value == null || (value is String && value.isEmpty)) {
+          Fluttertoast.showToast(msg: '${field.label}不能为空');
+          return false;
         }
       }
     }
-    return isValid;
-  }
-
-  Future<void> _deleteDraft() async {
-    try {
-      await _formService.deleteDraft(draftKey.value);
-    } catch (e) {
-      _logger.w('删除草稿失败: $e');
-    }
+    return true;
   }
 
   void resetForm() {
     formData.value = null;
     _initFormData();
-    _deleteDraft();
+    _formService.deleteDraftFromLocal(draftKey.value);
   }
 
   void switchRenderEngine(String engine) {
@@ -323,14 +283,5 @@ class FormController extends GetxController {
 
   Future<void> syncPendingData() async {
     await _formSyncService.syncAllPendingData();
-  }
-}
-
-extension _IterableExtension<T> on Iterable<T> {
-  T? firstWhereOrNull(bool Function(T element) test) {
-    for (var element in this) {
-      if (test(element)) return element;
-    }
-    return null;
   }
 }

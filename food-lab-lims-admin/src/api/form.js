@@ -15,9 +15,9 @@ export function getTemplate(id) {
   })
 }
 
-export function getCurrentTemplate(templateCode) {
+export function getCurrentTemplate(detectItemId) {
   return request({
-    url: `/form/template/current/${templateCode}`,
+    url: `/form/template/current/${detectItemId}`,
     method: 'get'
   })
 }
@@ -38,9 +38,9 @@ export function addTemplate(data) {
   })
 }
 
-export function updateTemplate(data) {
+export function updateTemplate(id, data) {
   return request({
-    url: '/form/template',
+    url: `/form/template/${id}`,
     method: 'put',
     data
   })
@@ -53,16 +53,17 @@ export function deleteTemplate(id) {
   })
 }
 
-export function publishTemplate(id) {
+export function publishTemplate(id, data) {
   return request({
     url: `/form/template/${id}/publish`,
-    method: 'post'
+    method: 'post',
+    data
   })
 }
 
 export function createNewVersion(id, data) {
   return request({
-    url: `/form/template/${id}/version`,
+    url: `/form/template/${id}/new-version`,
     method: 'post',
     data
   })
@@ -75,18 +76,19 @@ export function getVersionHistory(templateId) {
   })
 }
 
-export function rollbackVersion(versionId) {
+export function rollbackVersion(templateId, versionId) {
   return request({
-    url: `/form/template/version/${versionId}/rollback`,
+    url: `/form/template/${templateId}/rollback/${versionId}`,
     method: 'post'
   })
 }
 
-export function validateSchema(data) {
+export function validateSchema(formSchema) {
   return request({
-    url: '/form/template/validate',
+    url: '/form/template/validate-schema',
     method: 'post',
-    data
+    data: formSchema,
+    headers: { 'Content-Type': 'application/json' }
   })
 }
 
@@ -107,7 +109,7 @@ export function getData(id) {
 
 export function saveFormData(data) {
   return request({
-    url: '/form/data',
+    url: '/form/data/save',
     method: 'post',
     data
   })
@@ -129,6 +131,13 @@ export function syncData(data) {
   })
 }
 
+export function getDataByTemplateVersion(templateId, version) {
+  return request({
+    url: `/form/data/template/${templateId}/version/${version}`,
+    method: 'get'
+  })
+}
+
 export function startMigration(data) {
   return request({
     url: '/form/migration/start',
@@ -141,5 +150,13 @@ export function getMigrationStatus(migrationId) {
   return request({
     url: `/form/migration/${migrationId}/status`,
     method: 'get'
+  })
+}
+
+export function getMigratableData(params) {
+  return request({
+    url: '/form/migration/migratable',
+    method: 'get',
+    params
   })
 }

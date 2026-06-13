@@ -181,12 +181,22 @@ const versionRules = {
 const importJson = ref('')
 
 const schemaJson = computed(() => {
+  const properties = {}
+  const requiredKeys = []
+  fields.value.forEach(f => {
+    const { id, icon, component, ...rest } = f
+    properties[f.key] = { ...rest }
+    delete properties[f.key].key
+    if (f.required) {
+      requiredKeys.push(f.key)
+    }
+  })
   const schema = {
-    templateInfo: { ...templateInfo },
-    fields: fields.value.map(f => {
-      const { id, icon, component, ...rest } = f
-      return rest
-    })
+    type: 'object',
+    title: templateInfo.name || '',
+    description: templateInfo.description || '',
+    properties,
+    required: requiredKeys
   }
   return JSON.stringify(schema, null, 2)
 })
@@ -237,30 +247,71 @@ const handleBack = () => {
   router.push('/form/template/list')
 }
 
+const buildFormSchema = () => {
+  const properties = {}
+  const requiredKeys = []
+  fields.value.forEach(f => {
+    const fieldDef = {}
+    fieldDef.type = f.type === 'number' ? 'number' : 'string'
+    if (f.type === 'number') fieldDef.type = 'number'
+    if (f.type === 'date' || f.type === 'datetime') fieldDef.format = f.type
+    if (f.type === 'textarea') fieldDef.format = 'textarea'
+    if (f.type === 'file') fieldDef.format = 'file'
+    fieldDef.label = f.label || ''
+    if (f.placeholder) fieldDef.placeholder = f.placeholder
+    if (f.description) fieldDef.description = f.description
+    if (f.unit) fieldDef.unit = f.unit
+    if (f.required) fieldDef.required = true
+    if (f.readOnly) fieldDef.readOnly = true
+    if (f.hidden) fieldDef.hidden = true
+    if (f.maxLines) fieldDef.maxLines = f.maxLines
+    if (f.maxLength) fieldDef.maxLength = f.maxLength
+    if (f.precision !== undefined && f.precision !== null) fieldDef.precision = f.precision
+    if (f.min !== undefined && f.min !== null) fieldDef.min = f.min
+    if (f.max !== undefined && f.max !== null) fieldDef.max = f.max
+    if (f.resultType) { fieldDef.isResultField = true; fieldDef.resultType = f.resultType }
+    if (f.defaultValue !== undefined && f.defaultValue !== null) fieldDef.defaultValue = f.defaultValue
+    if (f.options && f.options.length > 0) fieldDef.options = f.options
+    if (f.allowedFileTypes && f.allowedFileTypes.length > 0) fieldDef.accept = f.allowedFileTypes
+    if (f.multiple) fieldDef.multiple = true
+    if (f.widgetConfig) fieldDef.widgetConfig = f.widgetConfig
+    if (f.sortOrder !== undefined) fieldDef.sortOrder = f.sortOrder
+    properties[f.key] = fieldDef
+    if (f.required) requiredKeys.push(f.key)
+  })
+  return JSON.stringify({
+    type: 'object',
+    title: templateInfo.name || '',
+    description: templateInfo.description || '',
+    properties,
+    required: requiredKeys
+  })
+}
+
 const handleSave = async () => {
-  const schemaData = {
-    templateInfo: { ...templateInfo },
-    fields: fields.value
-  }
+  const formSchema = buildFormSchema()
   try {
     if (templateInfo.id) {
-      await updateTemplate({
-        id: templateInfo.id,
-        ...templateInfo,
-        schema: schemaData,
-        fieldCount: fields.value.length
+      await updateTemplate(templateInfo.id, {
+        templateName: templateInfo.name,
+        description: templateInfo.description,
+        formSchema,
+        remark: templateInfo.remark
       })
       ElMessage.success('保存成功')
     } else {
       const res = await addTemplate({
-        ...templateInfo,
-        schema: schemaData,
-        fieldCount: fields.value.length
+        templateName: templateInfo.name,
+        detectItemId: templateInfo.detectItemId,
+        detectItemName: templateInfo.detectItemName,
+        description: templateInfo.description,
+        formSchema,
+        remark: templateInfo.remark
       })
       templateInfo.id = res?.id || Date.now()
       ElMessage.success('创建成功')
     }
-    emit('save', schemaData)
+    emit('save', formSchema)
   } catch (e) {
     ElMessage.error('保存失败')
   }
@@ -272,7 +323,7 @@ const handlePublish = async () => {
     return
   }
   try {
-    await publishTemplate(templateInfo.id)
+    await publishTemplate(templateInfo.id, { changeSummary: '发布版本 ' + (templateInfo.version || '1') })
     templateInfo.status = 'published'
     ElMessage.success('发布成功')
     emit('publish')
@@ -297,14 +348,10 @@ const handleVersionSubmit = async () => {
   if (!versionFormRef.value) return
   await versionFormRef.value.validate()
   try {
-    const schemaData = {
-      templateInfo: { ...templateInfo },
-      fields: fields.value
-    }
+    const formSchema = buildFormSchema()
     await createNewVersion(templateInfo.id, {
-      version: versionForm.version,
-      description: versionForm.description,
-      schema: schemaData
+      formSchema,
+      changeSummary: versionForm.description || '新建版本 ' + versionForm.version
     })
     templateInfo.version = versionForm.version
     ElMessage.success('新版本创建成功')
@@ -325,34 +372,27 @@ const handlePreviewSubmit = (data) => {
 }
 
 const handleValidate = async () => {
-  const schemaData = {
-    templateInfo: { ...templateInfo },
-    fields: fields.value
-  }
+  const formSchema = buildFormSchema()
   try {
-    const res = await validateSchema(schemaData)
-    if (res?.valid) {
-      ElMessage.success('Schema校验通过')
-    } else {
-      ElMessage.error(res?.message || 'Schema校验失败')
-    }
+    await validateSchema(formSchema)
+    ElMessage.success('Schema校验通过')
   } catch (e) {
-    const errors = validateLocal(schemaData)
+    const errors = validateLocal(fields.value)
     if (errors.length === 0) {
-      ElMessage.success('Schema校验通过')
+      ElMessage.success('本地校验通过')
     } else {
       ElMessage.error(errors.join('; '))
     }
   }
 }
 
-const validateLocal = (schema) => {
+const validateLocal = (fieldList) => {
   const errors = []
-  if (!schema.fields || schema.fields.length === 0) {
+  if (!fieldList || fieldList.length === 0) {
     errors.push('表单至少需要一个字段')
   }
   const keys = new Set()
-  schema.fields?.forEach((field, index) => {
+  fieldList?.forEach((field, index) => {
     if (!field.label) {
       errors.push(`第${index + 1}个字段缺少标签`)
     }
@@ -380,14 +420,55 @@ const handleImport = () => {
 const handleImportSchema = () => {
   try {
     const data = JSON.parse(importJson.value)
-    if (data.templateInfo) {
+    if (data.type === 'object' && data.properties) {
+      templateInfo.name = data.title || templateInfo.name
+      templateInfo.description = data.description || templateInfo.description
+      const requiredKeys = data.required || []
+      const importedFields = []
+      let sortOrder = 0
+      for (const [key, prop] of Object.entries(data.properties)) {
+        sortOrder++
+        const field = {
+          id: `field_${Date.now()}_${sortOrder}`,
+          key,
+          type: prop.format === 'date' || prop.format === 'datetime' ? prop.format
+            : prop.format === 'textarea' ? 'textarea'
+            : prop.format === 'file' ? 'file'
+            : prop.type === 'number' ? 'number'
+            : prop.options ? 'select'
+            : 'text',
+          label: prop.label || key,
+          placeholder: prop.placeholder || '',
+          description: prop.description || '',
+          unit: prop.unit || '',
+          required: requiredKeys.includes(key) || prop.required === true,
+          readOnly: prop.readOnly || false,
+          hidden: prop.hidden || false,
+          maxLines: prop.maxLines,
+          maxLength: prop.maxLength,
+          precision: prop.precision,
+          min: prop.min,
+          max: prop.max,
+          resultType: prop.isResultField ? (prop.resultType || 'quantitative') : undefined,
+          defaultValue: prop.defaultValue,
+          options: prop.options || [],
+          allowedFileTypes: prop.accept || [],
+          multiple: prop.multiple || false,
+          widgetConfig: prop.widgetConfig,
+          sortOrder
+        }
+        importedFields.push(field)
+      }
+      fields.value = importedFields.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+    } else if (data.templateInfo && data.fields) {
       Object.assign(templateInfo, data.templateInfo)
-    }
-    if (data.fields && Array.isArray(data.fields)) {
       fields.value = data.fields.map((f, i) => ({
         ...f,
         id: f.id || `field_${Date.now()}_${i}`
       }))
+    } else {
+      ElMessage.error('无法识别的Schema格式，请使用标准JSON Schema或模板格式')
+      return
     }
     ElMessage.success('导入成功')
     schemaVisible.value = false
@@ -406,14 +487,58 @@ watch(() => props.templateId, async (id) => {
           name: res.templateName,
           description: res.description,
           status: res.status,
-          version: res.version
+          version: res.version,
+          detectItemId: res.detectItemId,
+          detectItemName: res.detectItemName,
+          remark: res.remark
         })
-        if (res.schema) {
-          if (res.schema.templateInfo) {
-            Object.assign(templateInfo, res.schema.templateInfo)
-          }
-          if (res.schema.fields) {
-            fields.value = res.schema.fields
+        if (res.formSchema) {
+          try {
+            const schema = typeof res.formSchema === 'string'
+              ? JSON.parse(res.formSchema)
+              : res.formSchema
+            if (schema.type === 'object' && schema.properties) {
+              templateInfo.name = schema.title || templateInfo.name
+              templateInfo.description = schema.description || templateInfo.description
+              const requiredKeys = schema.required || []
+              const importedFields = []
+              let sortOrder = 0
+              for (const [key, prop] of Object.entries(schema.properties)) {
+                sortOrder++
+                importedFields.push({
+                  id: `field_${Date.now()}_${sortOrder}`,
+                  key,
+                  type: prop.format === 'date' || prop.format === 'datetime' ? prop.format
+                    : prop.format === 'textarea' ? 'textarea'
+                    : prop.format === 'file' ? 'file'
+                    : prop.type === 'number' ? 'number'
+                    : prop.options ? 'select'
+                    : 'text',
+                  label: prop.label || key,
+                  placeholder: prop.placeholder || '',
+                  description: prop.description || '',
+                  unit: prop.unit || '',
+                  required: requiredKeys.includes(key) || prop.required === true,
+                  readOnly: prop.readOnly || false,
+                  hidden: prop.hidden || false,
+                  maxLines: prop.maxLines,
+                  maxLength: prop.maxLength,
+                  precision: prop.precision,
+                  min: prop.min,
+                  max: prop.max,
+                  resultType: prop.isResultField ? (prop.resultType || 'quantitative') : undefined,
+                  defaultValue: prop.defaultValue,
+                  options: prop.options || [],
+                  allowedFileTypes: prop.accept || [],
+                  multiple: prop.multiple || false,
+                  widgetConfig: prop.widgetConfig,
+                  sortOrder
+                })
+              }
+              fields.value = importedFields.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            }
+          } catch (parseErr) {
+            console.error('解析formSchema失败:', parseErr)
           }
         }
       }

@@ -171,33 +171,12 @@ class FormSyncService extends GetxService {
     try {
       _addLog('开始批量同步 ${dataList.length} 条数据...');
 
-      final batchData = dataList.map((e) => e.toSubmitJson()).toList();
-      final response = await _dioService.post(
-        ApiConfig.formDataBatchSync,
-        data: {'items': batchData},
-      );
-
-      if (response.statusCode == 200 && response.data['code'] == 200) {
-        final result = response.data['data'];
-        final successIds = List<int>.from(result['successIds'] ?? []);
-        final failIds = List<int>.from(result['failIds'] ?? []);
-
-        for (var formData in dataList) {
-          if (successIds.contains(formData.id)) {
-            await _updateSyncStatus(formData, 'synced');
-            syncSuccessCount.value++;
-          } else {
-            await _updateSyncStatus(formData, 'failed');
-            syncFailCount.value++;
-          }
-        }
-
-        _addLog('批量同步完成：成功 ${successIds.length} 条，失败 ${failIds.length} 条');
-        syncStatus.value = failIds.isNotEmpty ? 'partial' : 'completed';
-      } else {
-        _addLog('批量同步失败: ${response.data['message']}');
-        syncStatus.value = 'error';
+      for (var formData in dataList) {
+        await _syncSingleFormData(formData);
       }
+
+      _addLog('批量同步完成：成功 ${syncSuccessCount.value} 条，失败 ${syncFailCount.value} 条');
+      syncStatus.value = syncFailCount.value > 0 ? 'partial' : 'completed';
     } catch (e) {
       _logger.e('批量同步失败: $e');
       _addLog('批量同步异常: ${e.toString()}');

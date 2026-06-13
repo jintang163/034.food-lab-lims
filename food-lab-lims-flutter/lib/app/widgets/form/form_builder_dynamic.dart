@@ -38,12 +38,14 @@ class FormBuilderDynamic extends StatefulWidget {
 class _FormBuilderDynamicState extends State<FormBuilderDynamic> {
   final _formKey = GlobalKey<FormBuilderState>();
   late Map<String, dynamic> _formData;
-  late Map<String, dynamic> _fieldJudgeStatus;
+  late Map<String, String> _fieldJudgeStatus;
   late FormDataModel _currentData;
+  late List<FormFieldModel> _fields;
 
   @override
   void initState() {
     super.initState();
+    _fields = widget.template.parseFields();
     _initFormData();
   }
 
@@ -51,15 +53,10 @@ class _FormBuilderDynamicState extends State<FormBuilderDynamic> {
     _formData = {};
     _fieldJudgeStatus = {};
 
-    for (var field in widget.template.fields ?? []) {
+    for (var field in _fields) {
       if (field.key != null) {
         final initialValue = widget.initialData?.formData?[field.key] ?? field.defaultValue;
         _formData[field.key!] = initialValue;
-
-        final judgeStatus = widget.initialData?.getFieldJudgeStatus(field.key!);
-        if (judgeStatus != null) {
-          _fieldJudgeStatus[field.key!] = judgeStatus;
-        }
       }
     }
 
@@ -67,7 +64,6 @@ class _FormBuilderDynamicState extends State<FormBuilderDynamic> {
       templateId: widget.template.id,
       templateCode: widget.template.templateCode,
       formData: _formData,
-      fieldJudgeStatus: _fieldJudgeStatus,
     );
   }
 
@@ -82,7 +78,7 @@ class _FormBuilderDynamicState extends State<FormBuilderDynamic> {
   }
 
   void _autoJudge(String key, dynamic value) {
-    final field = widget.template.fields?.firstWhereOrNull((f) => f.key == key);
+    final field = _fields.firstWhereOrNull((f) => f.key == key);
     if (field == null || !field.isResultField) return;
 
     final widgetConfig = field.widgetConfig;
@@ -117,17 +113,15 @@ class _FormBuilderDynamicState extends State<FormBuilderDynamic> {
 
     final status = isQualified ? 'qualified' : 'unqualified';
     _fieldJudgeStatus[key] = status;
-    _currentData.fieldJudgeStatus = Map.from(_fieldJudgeStatus);
-    _currentData.judgeStatus = status;
-    _currentData.judgeResult = isQualified ? '合格' : '不合格';
+    field.judgeStatus = status;
   }
 
   bool _validateForm() {
     bool isValid = true;
-    for (var field in widget.template.fields ?? []) {
+    for (var field in _fields) {
       if (field.key != null && !field.isHidden) {
         final value = _formData[field.key!];
-        final error = FormFieldBuilder._validateField(field, value);
+        final error = FormFieldBuilder.validateField(field, value);
         if (error != null) {
           isValid = false;
         }
@@ -143,7 +137,6 @@ class _FormBuilderDynamicState extends State<FormBuilderDynamic> {
     }
 
     _currentData.formData = Map.from(_formData);
-    _currentData.fieldJudgeStatus = Map.from(_fieldJudgeStatus);
     widget.onSubmitted?.call(_currentData);
   }
 
@@ -154,11 +147,11 @@ class _FormBuilderDynamicState extends State<FormBuilderDynamic> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ...?widget.template.fields?.map((field) {
+          ..._fields.map((field) {
             if (field.isHidden) return const SizedBox.shrink();
 
             final fieldWithStatus = FormFieldModel.fromJson(field.toJson());
-            fieldWithStatus.judgeStatus = _fieldJudgeStatus[field.key] as String?;
+            fieldWithStatus.judgeStatus = _fieldJudgeStatus[field.key];
 
             return FormFieldBuilder.buildField(
               field: fieldWithStatus,

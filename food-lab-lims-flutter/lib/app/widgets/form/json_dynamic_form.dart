@@ -41,13 +41,15 @@ class JsonDynamicForm extends StatefulWidget {
 class _JsonDynamicFormState extends State<JsonDynamicForm> {
   late final JsonWidgetRegistry _registry;
   late Map<String, dynamic> _formData;
-  late Map<String, dynamic> _fieldJudgeStatus;
+  late Map<String, String> _fieldJudgeStatus;
   late FormDataModel _currentData;
+  late List<FormFieldModel> _fields;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
+    _fields = widget.template.parseFields();
     _initFormData();
     _initWidgetRegistry();
   }
@@ -56,15 +58,10 @@ class _JsonDynamicFormState extends State<JsonDynamicForm> {
     _formData = {};
     _fieldJudgeStatus = {};
 
-    for (var field in widget.template.fields ?? []) {
+    for (var field in _fields) {
       if (field.key != null) {
         final initialValue = widget.initialData?.formData?[field.key] ?? field.defaultValue;
         _formData[field.key!] = initialValue;
-
-        final judgeStatus = widget.initialData?.getFieldJudgeStatus(field.key!);
-        if (judgeStatus != null) {
-          _fieldJudgeStatus[field.key!] = judgeStatus;
-        }
       }
     }
 
@@ -72,7 +69,6 @@ class _JsonDynamicFormState extends State<JsonDynamicForm> {
       templateId: widget.template.id,
       templateCode: widget.template.templateCode,
       formData: _formData,
-      fieldJudgeStatus: _fieldJudgeStatus,
     );
   }
 
@@ -135,7 +131,7 @@ class _JsonDynamicFormState extends State<JsonDynamicForm> {
   }
 
   void _autoJudge(String key, dynamic value) {
-    final field = widget.template.fields?.firstWhereOrNull((f) => f.key == key);
+    final field = _fields.firstWhereOrNull((f) => f.key == key);
     if (field == null || !field.isResultField) return;
 
     final widgetConfig = field.widgetConfig;
@@ -170,14 +166,12 @@ class _JsonDynamicFormState extends State<JsonDynamicForm> {
 
     final status = isQualified ? 'qualified' : 'unqualified';
     _fieldJudgeStatus[key] = status;
-    _currentData.fieldJudgeStatus = Map.from(_fieldJudgeStatus);
-    _currentData.judgeStatus = status;
-    _currentData.judgeResult = isQualified ? '合格' : '不合格';
+    field.judgeStatus = status;
   }
 
   bool _validateForm() {
     bool isValid = true;
-    for (var field in widget.template.fields ?? []) {
+    for (var field in _fields) {
       if (field.key != null && !field.isHidden) {
         final value = _formData[field.key!];
         final error = FormFieldBuilder.validateField(field, value);
@@ -196,13 +190,12 @@ class _JsonDynamicFormState extends State<JsonDynamicForm> {
     }
 
     _currentData.formData = Map.from(_formData);
-    _currentData.fieldJudgeStatus = Map.from(_fieldJudgeStatus);
     widget.onSubmitted?.call(_currentData);
   }
 
   Map<String, dynamic> _convertFieldToJsonWidget(FormFieldModel field) {
     final fieldWithStatus = FormFieldModel.fromJson(field.toJson());
-    fieldWithStatus.judgeStatus = _fieldJudgeStatus[field.key] as String?;
+    fieldWithStatus.judgeStatus = _fieldJudgeStatus[field.key];
 
     final isResultField = fieldWithStatus.isResultField;
     final isUnqualified = fieldWithStatus.isUnqualified;
@@ -337,14 +330,9 @@ class _JsonDynamicFormState extends State<JsonDynamicForm> {
   }
 
   Map<String, dynamic> _buildFormJson() {
-    final layoutConfig = widget.template.layoutConfig;
     final List<Map<String, dynamic>> children = [];
 
-    if (layoutConfig != null && layoutConfig['jsonSchema'] != null) {
-      return Map<String, dynamic>.from(layoutConfig['jsonSchema']);
-    }
-
-    for (var field in widget.template.fields ?? []) {
+    for (var field in _fields) {
       if (!field.isHidden) {
         children.add(_convertFieldToJsonWidget(field));
       }
@@ -396,24 +384,6 @@ class _JsonDynamicFormState extends State<JsonDynamicForm> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.template.layoutConfig?['jsonSchema'] != null) {
-      final jsonSchema = Map<String, dynamic>.from(
-        widget.template.layoutConfig!['jsonSchema'] as Map,
-      );
-
-      try {
-        final widgetData = JsonWidgetData.fromDynamic(
-          jsonSchema,
-          registry: _registry,
-        );
-
-        return widgetData!.build(context: context);
-      } catch (e) {
-        Get.snackbar('错误', 'JSON Schema解析失败: ${e.toString()}');
-        return _buildFallbackForm();
-      }
-    }
-
     return _buildFallbackForm();
   }
 
@@ -423,11 +393,11 @@ class _JsonDynamicFormState extends State<JsonDynamicForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ...?widget.template.fields?.map((field) {
+          ..._fields.map((field) {
             if (field.isHidden) return const SizedBox.shrink();
 
             final fieldWithStatus = FormFieldModel.fromJson(field.toJson());
-            fieldWithStatus.judgeStatus = _fieldJudgeStatus[field.key] as String?;
+            fieldWithStatus.judgeStatus = _fieldJudgeStatus[field.key];
 
             return FormFieldBuilder.buildField(
               field: fieldWithStatus,

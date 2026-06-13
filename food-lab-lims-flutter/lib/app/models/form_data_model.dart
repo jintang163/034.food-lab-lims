@@ -1,84 +1,114 @@
-import 'package:json_annotation/json_annotation.dart';
-
-part 'form_data_model.g.dart';
-
-@JsonSerializable()
 class FormDataModel {
   int? id;
-  String? offlineId;
+  String? dataCode;
   int? templateId;
   String? templateCode;
-  int? taskId;
+  int? templateVersion;
+  int? detectItemId;
   int? sampleId;
   String? sampleCode;
-  int? detectItemId;
-  String? detectItemName;
+  int? taskId;
   Map<String, dynamic>? formData;
-  Map<String, dynamic>? fieldJudgeStatus;
-  String? judgeResult;
-  String? judgeStatus;
-  String? remark;
-  List<String>? attachFiles;
+  String? submitTime;
+  int? submittedBy;
+  String? submittedByName;
   String? formStatus;
   String? syncStatus;
-  String? createTime;
-  String? updateTime;
-  String? submitTime;
-  int? createUser;
-  int? updateUser;
+  String? offlineId;
   String? deviceId;
-  String? draftKey;
-  int? version;
+  String? remark;
 
   FormDataModel({
     this.id,
-    this.offlineId,
+    this.dataCode,
     this.templateId,
     this.templateCode,
-    this.taskId,
+    this.templateVersion,
+    this.detectItemId,
     this.sampleId,
     this.sampleCode,
-    this.detectItemId,
-    this.detectItemName,
+    this.taskId,
     this.formData,
-    this.fieldJudgeStatus,
-    this.judgeResult,
-    this.judgeStatus,
-    this.remark,
-    this.attachFiles,
+    this.submitTime,
+    this.submittedBy,
+    this.submittedByName,
     this.formStatus,
     this.syncStatus,
-    this.createTime,
-    this.updateTime,
-    this.submitTime,
-    this.createUser,
-    this.updateUser,
+    this.offlineId,
     this.deviceId,
-    this.draftKey,
-    this.version,
+    this.remark,
   });
 
-  factory FormDataModel.fromJson(Map<String, dynamic> json) => _$FormDataModelFromJson(json);
+  factory FormDataModel.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic>? parsedFormData;
+    if (json['formData'] != null) {
+      if (json['formData'] is Map) {
+        parsedFormData = Map<String, dynamic>.from(json['formData'] as Map);
+      } else if (json['formData'] is String && (json['formData'] as String).isNotEmpty) {
+        try {
+          parsedFormData = Map<String, dynamic>.from(jsonDecode(json['formData'] as String) as Map);
+        } catch (_) {
+          parsedFormData = null;
+        }
+      }
+    }
+    return FormDataModel(
+      id: json['id'] as int?,
+      dataCode: json['dataCode'] as String?,
+      templateId: json['templateId'] as int?,
+      templateCode: json['templateCode'] as String?,
+      templateVersion: json['templateVersion'] as int?,
+      detectItemId: json['detectItemId'] as int?,
+      sampleId: json['sampleId'] as int?,
+      sampleCode: json['sampleCode'] as String?,
+      taskId: json['taskId'] as int?,
+      formData: parsedFormData,
+      submitTime: json['submitTime'] as String?,
+      submittedBy: json['submittedBy'] as int?,
+      submittedByName: json['submittedByName'] as String?,
+      formStatus: json['status'] as String? ?? json['formStatus'] as String?,
+      syncStatus: json['syncStatus'] as String?,
+      offlineId: json['offlineId'] as String?,
+      deviceId: json['deviceId'] as String?,
+      remark: json['remark'] as String?,
+    );
+  }
 
-  Map<String, dynamic> toJson() => _$FormDataModelToJson(this);
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null) 'id': id,
+      if (dataCode != null) 'dataCode': dataCode,
+      if (templateId != null) 'templateId': templateId,
+      if (templateCode != null) 'templateCode': templateCode,
+      if (templateVersion != null) 'templateVersion': templateVersion,
+      if (detectItemId != null) 'detectItemId': detectItemId,
+      if (sampleId != null) 'sampleId': sampleId,
+      if (sampleCode != null) 'sampleCode': sampleCode,
+      if (taskId != null) 'taskId': taskId,
+      if (formData != null) 'formData': formData,
+      if (submitTime != null) 'submitTime': submitTime,
+      if (submittedBy != null) 'submittedBy': submittedBy,
+      if (submittedByName != null) 'submittedByName': submittedByName,
+      'status': formStatus ?? 'draft',
+      if (syncStatus != null) 'syncStatus': syncStatus,
+      if (offlineId != null) 'offlineId': offlineId,
+      if (deviceId != null) 'deviceId': deviceId,
+      if (remark != null) 'remark': remark,
+    };
+  }
 
   Map<String, dynamic> toSubmitJson() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'templateId': templateId,
-      'templateCode': templateCode,
-      'taskId': taskId,
-      'sampleId': sampleId,
-      'sampleCode': sampleCode,
-      'detectItemId': detectItemId,
-      'detectItemName': detectItemName,
+      if (templateCode != null) 'templateCode': templateCode,
+      if (templateVersion != null) 'templateVersion': templateVersion,
+      if (detectItemId != null) 'detectItemId': detectItemId,
+      if (sampleId != null) 'sampleId': sampleId,
+      if (sampleCode != null) 'sampleCode': sampleCode,
+      if (taskId != null) 'taskId': taskId,
       'formData': formData,
-      'fieldJudgeStatus': fieldJudgeStatus,
-      'judgeResult': judgeResult,
-      'judgeStatus': judgeStatus,
-      'remark': remark,
-      'attachFiles': attachFiles,
-      'formStatus': formStatus,
+      if (remark != null) 'remark': remark,
     };
   }
 
@@ -86,25 +116,11 @@ class FormDataModel {
   bool get isSubmitted => formStatus == 'submitted';
   bool get isSynced => syncStatus == 'synced';
   bool get isPendingSync => syncStatus == 'pending';
-  bool get isFailedSync => syncStatus == 'failed';
-  bool get isQualified => judgeStatus == 'qualified';
-  bool get isUnqualified => judgeStatus == 'unqualified';
 
   void updateFieldValue(String key, dynamic value) {
     formData ??= {};
     formData![key] = value;
   }
 
-  dynamic getFieldValue(String key) {
-    return formData?[key];
-  }
-
-  void updateFieldJudgeStatus(String key, String status) {
-    fieldJudgeStatus ??= {};
-    fieldJudgeStatus![key] = status;
-  }
-
-  String? getFieldJudgeStatus(String key) {
-    return fieldJudgeStatus?[key] as String?;
-  }
+  dynamic getFieldValue(String key) => formData?[key];
 }

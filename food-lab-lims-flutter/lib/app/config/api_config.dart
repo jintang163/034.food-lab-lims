@@ -44,22 +44,24 @@ class ApiConfig {
 
   static const String formTemplateList = '/form/template/page';
   static const String formTemplateDetail = '/form/template';
-  static const String formTemplateByCode = '/form/template/code';
-  static const String formTemplateSchema = '/form/template/schema';
+  static const String formTemplateCurrent = '/form/template/current';
+  static const String formTemplateCreate = '/form/template';
+  static const String formTemplateUpdate = '/form/template';
+  static const String formTemplateDelete = '/form/template';
+  static const String formTemplatePublish = '/form/template'; // /{id}/publish
+  static const String formTemplateNewVersion = '/form/template'; // /{id}/new-version
+  static const String formTemplateVersions = '/form/template'; // /{id}/versions
+  static const String formTemplateRollback = '/form/template'; // /{id}/rollback/{versionId}
+  static const String formTemplateValidateSchema = '/form/template/validate-schema';
 
   static const String formDataSave = '/form/data/save';
   static const String formDataSubmit = '/form/data/submit';
   static const String formDataDetail = '/form/data';
   static const String formDataList = '/form/data/page';
   static const String formDataSync = '/form/data/sync';
-  static const String formDataBatchSync = '/form/data/batch-sync';
+  static const String formDataByVersion = '/form/data/template'; // /{templateId}/version/{version}
 
-  static const String formDraftSave = '/form/draft/save';
-  static const String formDraftGet = '/form/draft';
-  static const String formDraftDelete = '/form/draft';
-  static const String formDraftList = '/form/draft/page';
-
-  static const String formFileUpload = '/form/file/upload';
-  static const String formFileDownload = '/form/file/download';
-  static const String formFileDelete = '/form/file';
+  static const String migrationStart = '/form/migration/start';
+  static const String migrationStatus = '/form/migration'; // /{id}/status
+  static const String migrationMigratable = '/form/migration/migratable';
 }

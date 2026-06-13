@@ -8,6 +8,7 @@ import '../../services/dio_service.dart';
 import '../../services/database_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/form_service.dart';
 import '../../config/api_config.dart';
 import '../../models/detect_result_model.dart';
 import '../../models/detect_item_model.dart';
@@ -122,6 +123,21 @@ class DetectController extends GetxController {
   Future<void> loadFormSchema(int detectItemId) async {
     isLoading.value = true;
     try {
+      final FormService formService = Get.find<FormService>();
+      final formTemplate = await formService.getCurrentTemplateByDetectItem(detectItemId);
+      if (formTemplate != null && formTemplate.formSchema != null) {
+        final fields = formTemplate.parseFields();
+        formSchema.value = fields.map((f) => f.toJson()).toList();
+        _initFormData();
+        return;
+      }
+
+      final isConnected = await _connectivityService.checkConnection();
+      if (!isConnected) {
+        Fluttertoast.showToast(msg: '网络不可用');
+        return;
+      }
+
       final response = await _dioService.get(
         '${ApiConfig.detectItemFormSchema}/$detectItemId',
       );
