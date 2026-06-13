@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.schedule.mapper.InstrumentMapper">
+
+    <select id="selectOccupiedSlots" resultType="com.foodlab.schedule.entity.InstrumentCalendar">
+        SELECT * FROM instrument_calendar
+        WHERE instrument_id = #{instrumentId}
+          AND calendar_date = #{calendarDate}
+          AND deleted = 0
+        ORDER BY start_time
+    </select>
+
+    <select id="selectOccupiedSlotsByRange" resultType="com.foodlab.schedule.entity.InstrumentCalendar">
+        SELECT * FROM instrument_calendar
+        WHERE instrument_id = #{instrumentId}
+          AND calendar_date BETWEEN #{startDate} AND #{endDate}
+          AND deleted = 0
+        ORDER BY calendar_date, start_time
+    </select>
+
+    <select id="selectAvailableInstrumentsByDetectItem" resultType="com.foodlab.schedule.entity.Instrument">
+        SELECT i.* FROM instrument i
+        INNER JOIN detect_item_instrument dii ON i.id = dii.instrument_id
+        WHERE dii.detect_item_id = #{detectItemId}
+          AND i.status = 'AVAILABLE'
+          AND i.deleted = 0
+          AND dii.deleted = 0
+        ORDER BY dii.sort_order
+    </select>
+
+</mapper>

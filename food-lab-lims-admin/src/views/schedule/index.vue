@@ -143,7 +143,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="adjustVisible" title="调整排程" width="480px">
+    <el-dialog v-model="adjustVisible" title="调整排程" width="520px">
       <el-form :model="adjustForm" label-width="100px" v-if="selectedTask">
         <el-form-item label="任务">
           <span>{{ selectedTask.name }}</span>
@@ -151,8 +151,28 @@
         <el-form-item label="当前仪器">
           <span>{{ selectedTask.instrumentName }}</span>
         </el-form-item>
+        <el-form-item label="目标仪器">
+          <el-select v-model="adjustForm.newInstrumentId" clearable placeholder="不更换仪器" style="width:100%">
+            <el-option
+              v-for="ins in resources.filter(r => r.type === 'instrument')"
+              :key="ins.id"
+              :label="ins.name"
+              :value="ins.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="当前人员" v-if="selectedTask.detectPersonName">
           <span>{{ selectedTask.detectPersonName }}</span>
+        </el-form-item>
+        <el-form-item label="目标人员">
+          <el-select v-model="adjustForm.newDetectPersonId" clearable placeholder="不更换人员" style="width:100%">
+            <el-option
+              v-for="p in resources.filter(r => r.type === 'person')"
+              :key="p.id - 1000000"
+              :label="p.name"
+              :value="p.id - 1000000"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="新开始时间" required>
           <el-date-picker
@@ -277,6 +297,8 @@ const adjustForm = reactive({
   id: null,
   newStartTime: '',
   newEndTime: '',
+  newInstrumentId: null,
+  newDetectPersonId: null,
   reason: ''
 })
 
@@ -476,6 +498,18 @@ function handleDrop(e, res, day) {
   adjustForm.id = t.id
   adjustForm.newStartTime = dt.toISOString().replace('Z', '')
   adjustForm.newEndTime = end.toISOString().replace('Z', '')
+  adjustForm.newInstrumentId = null
+  adjustForm.newDetectPersonId = null
+  if (res.type === 'instrument') {
+    if (res.id !== t.instrumentId) {
+      adjustForm.newInstrumentId = res.id
+    }
+  } else if (res.type === 'person') {
+    const realPersonId = res.id - 1000000
+    if (realPersonId !== t.detectPersonId) {
+      adjustForm.newDetectPersonId = realPersonId
+    }
+  }
   adjustForm.reason = '拖拽调整'
   adjustVisible.value = true
   draggingTask = null

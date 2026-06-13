@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.schedule.mapper.StaffLeaveMapper">
+
+    <select id="selectLeavesByUserAndRange" resultType="com.foodlab.schedule.entity.StaffLeave">
+        SELECT * FROM staff_leave
+        WHERE user_id = #{userId}
+          AND status = 'APPROVED'
+          AND deleted = 0
+          AND (
+            (start_date BETWEEN #{startDate} AND #{endDate})
+            OR (end_date BETWEEN #{startDate} AND #{endDate})
+            OR (start_date &lt;= #{startDate} AND end_date &gt;= #{endDate})
+          )
+        ORDER BY start_date
+    </select>
+
+    <select id="selectLeavesByUserAndDate" resultType="com.foodlab.schedule.entity.StaffLeave">
+        SELECT * FROM staff_leave
+        WHERE user_id = #{userId}
+          AND status = 'APPROVED'
+          AND deleted = 0
+          AND start_date &lt;= #{date}
+          AND end_date &gt;= #{date}
+        ORDER BY start_date
+    </select>
+
+    <select id="selectUsersOnLeaveByRange" resultType="java.lang.Long">
+        SELECT DISTINCT user_id FROM staff_leave
+        WHERE status = 'APPROVED'
+          AND deleted = 0
+          AND (
+            (start_date BETWEEN #{startDate} AND #{endDate})
+            OR (end_date BETWEEN #{startDate} AND #{endDate})
+            OR (start_date &lt;= #{startDate} AND end_date &gt;= #{endDate})
+          )
+    </select>
+
+</mapper>

@@ -82,14 +82,20 @@ public class ScheduleServiceImpl implements ScheduleService {
                 : Collections.emptyList();
         Set<Long> leaveSet = new HashSet<>(usersOnLeave);
 
-        pendingTasks.sort(this::compareTaskPriority);
+        Map<Long, Sample> sampleCache = new HashMap<>();
+        for (DetectTask task : pendingTasks) {
+            sampleCache.computeIfAbsent(task.getSampleId(), sid -> sampleMapper.selectById(sid));
+        }
+
+        pendingTasks.sort((t1, t2) -> compareTaskPriorityAndUrgency(t1, t2, sampleCache));
+
+        Map<Long, List<LocalDateTime[]>> batchOccupiedByInstrument = new HashMap<>();
 
         List<ScheduleResult> allResults = new ArrayList<>();
         int sortOrder = 1;
         int conflictCount = 0;
 
         for (DetectTask task : pendingTasks) {
-            Sample sample = sampleMapper.selectById(task.getSampleId());
             List<SampleDetectItem> sampleDetectItems = sampleDetectItemMapper.selectList(
                     new LambdaQueryWrapper<SampleDetectItem>()
                             .eq(SampleDetectItem::getSampleId, task.getSampleId())
@@ -98,9 +104,6 @@ public class ScheduleServiceImpl implements ScheduleService {
             if (CollUtil.isEmpty(sampleDetectItems)) {
                 continue;
             }
-
-            LocalDateTime taskEarliestStart = dto.getStartDate().atTime(LocalTime.of(8, 0));
-            LocalDateTime currentTaskStart = taskEarliestStart;
 
             for (SampleDetectItem sdi : sampleDetectItems) {
                 DetectItem detectItem = detectItemMapper.selectById(sdi.getDetectItemId());
@@ -111,10 +114,11 @@ public class ScheduleServiceImpl implements ScheduleService {
                 List<DetectItemInstrument> itemInstruments = detectItemInstrumentMapper
                         .selectByDetectItemId(detectItem.getId());
                 if (CollUtil.isEmpty(itemInstruments)) {
-                    log.warn("检测项目{}没有配置仪器配置，跳过：{}", detectItem.getId(), detectItem.getItemName());
+                    log.warn("检测项目{}没有配置仪器，跳过：{}", detectItem.getId(), detectItem.getItemName());
                     continue;
                 }
 
+                boolean scheduled = false;
                 for (DetectItemInstrument dii : itemInstruments) {
                     Instrument instrument = instrumentMap.get(dii.getInstrumentId());
                     if (instrument == null) {
@@ -125,17 +129,17 @@ public class ScheduleServiceImpl implements ScheduleService {
 
                     TimeSlot slot = findEarliestFreeSlot(
                             instrument.getId(),
-                            currentTaskStart.toLocalDate(),
+                            dto.getStartDate(),
                             dto.getEndDate(),
                             duration,
                             instrument.getDailyStartTime(),
                             instrument.getDailyEndTime(),
-                            dto.getConsiderInstrumentCalendar()
+                            dto.getConsiderInstrumentCalendar(),
+                            batchOccupiedByInstrument
                     );
 
                     if (slot == null) {
-                        conflictCount++;
-                        log.warn("任务{}项目{}在仪器{}上无法安排，存在冲突", task.getTaskCode(), detectItem.getItemName(), instrument.getInstrumentName());
+                        log.warn("任务{}项目{}在仪器{}上无法安排", task.getTaskCode(), detectItem.getItemName(), instrument.getInstrumentName());
                         continue;
                     }
 
@@ -171,11 +175,17 @@ public class ScheduleServiceImpl implements ScheduleService {
                     result.setSortOrder(sortOrder++);
                     allResults.add(result);
 
-                    currentTaskStart = slot.end;
+                    batchOccupiedByInstrument
+                            .computeIfAbsent(instrument.getId(), k -> new ArrayList<>())
+                            .add(new LocalDateTime[]{slot.start, slot.end});
 
-                    if (!slot.start.toLocalDate().isAfter(dto.getEndDate())) {
-                        break;
-                    }
+                    scheduled = true;
+                    break;
+                }
+
+                if (!scheduled) {
+                    conflictCount++;
+                    log.warn("任务{}项目{}在所有仪器上均无法安排，存在冲突", task.getTaskCode(), detectItem.getItemName());
                 }
             }
         }
@@ -207,8 +217,9 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     private TimeSlot findEarliestFreeSlot(Long instrumentId, LocalDate startDate, LocalDate endDate,
-                                      int durationMinutes, LocalTime dailyStart, LocalTime dailyEnd,
-                                      boolean considerCalendar) {
+                                          int durationMinutes, LocalTime dailyStart, LocalTime dailyEnd,
+                                          boolean considerCalendar,
+                                          Map<Long, List<LocalDateTime[]>> batchOccupiedByInstrument) {
         LocalDate currentDate = startDate;
         int maxDays = (int) ChronoUnit.DAYS.between(startDate, endDate) + 1;
 
@@ -228,6 +239,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             }
 
             List<LocalDateTime[]> occupiedIntervals = new ArrayList<>();
+
             if (considerCalendar) {
                 List<InstrumentCalendar> calendars = instrumentMapper.selectOccupiedSlots(instrumentId, currentDate);
                 for (InstrumentCalendar cal : calendars) {
@@ -242,24 +254,38 @@ public class ScheduleServiceImpl implements ScheduleService {
                 }
             }
 
-            occupiedIntervals.sort(Comparator.comparing(a -> a[0]));
-
-            LocalDateTime candidateStart = dayStart;
-            for (LocalDateTime[] interval : occupiedIntervals) {
-                LocalDateTime slotEnd = candidateStart.plusMinutes(durationMinutes);
-                if (!slotEnd.isAfter(dayEnd)) {
-                    break;
-                }
-                if (slotEnd.isBefore(interval[0]) || candidateStart.isEqual(interval[0]) || candidateStart.isAfter(interval[1])) {
-                    return new TimeSlot(candidateStart, slotEnd);
-                } else {
-                    candidateStart = interval[1].isAfter(candidateStart) ? interval[1] : candidateStart;
+            List<LocalDateTime[]> batchIntervals = batchOccupiedByInstrument.getOrDefault(instrumentId, Collections.emptyList());
+            for (LocalDateTime[] bi : batchIntervals) {
+                if (!bi[0].toLocalDate().isAfter(currentDate) && !bi[1].toLocalDate().isBefore(currentDate)) {
+                    occupiedIntervals.add(bi);
                 }
             }
 
-            LocalDateTime finalEnd = candidateStart.plusMinutes(durationMinutes);
-            if (!finalEnd.isAfter(dayEnd) && candidateStart.isBefore(dayEnd)) {
-                return new TimeSlot(candidateStart, finalEnd);
+            occupiedIntervals.sort(Comparator.comparing(a -> a[0]));
+
+            LocalDateTime candidateStart = dayStart;
+            boolean found = false;
+
+            for (LocalDateTime[] interval : occupiedIntervals) {
+                LocalDateTime slotEnd = candidateStart.plusMinutes(durationMinutes);
+                if (slotEnd.isAfter(dayEnd)) {
+                    break;
+                }
+                if (candidateStart.plusMinutes(durationMinutes).isBefore(interval[0])
+                        || candidateStart.plusMinutes(durationMinutes).equals(interval[0])) {
+                    return new TimeSlot(candidateStart, candidateStart.plusMinutes(durationMinutes));
+                }
+                if (!interval[1].isAfter(candidateStart)) {
+                    continue;
+                }
+                candidateStart = interval[1].isAfter(candidateStart) ? interval[1] : candidateStart;
+            }
+
+            if (!found) {
+                LocalDateTime finalEnd = candidateStart.plusMinutes(durationMinutes);
+                if (!finalEnd.isAfter(dayEnd) && candidateStart.isBefore(dayEnd)) {
+                    return new TimeSlot(candidateStart, finalEnd);
+                }
             }
 
             currentDate = currentDate.plusDays(1);
@@ -309,11 +335,20 @@ public class ScheduleServiceImpl implements ScheduleService {
         return persons.get(0);
     }
 
-    private int compareTaskPriority(DetectTask t1, DetectTask t2) {
+    private int compareTaskPriorityAndUrgency(DetectTask t1, DetectTask t2, Map<Long, Sample> sampleCache) {
         int w1 = getPriorityWeight(t1.getPriority());
         int w2 = getPriorityWeight(t2.getPriority());
-        if (w1 != w2) {
-            return Integer.compare(w2, w1);
+
+        Sample s1 = sampleCache.get(t1.getSampleId());
+        Sample s2 = sampleCache.get(t2.getSampleId());
+        int u1 = getUrgencyWeight(t1, s1);
+        int u2 = getUrgencyWeight(t2, s2);
+
+        int score1 = w1 + u1;
+        int score2 = w2 + u2;
+
+        if (score1 != score2) {
+            return Integer.compare(score2, score1);
         }
         return t1.getId().compareTo(t2.getId());
     }
@@ -325,6 +360,13 @@ public class ScheduleServiceImpl implements ScheduleService {
             return ScheduleConstants.PRIORITY_WEIGHT_MEDIUM;
         }
         return ScheduleConstants.PRIORITY_WEIGHT_LOW;
+    }
+
+    private int getUrgencyWeight(DetectTask task, Sample sample) {
+        if (TaskConstants.TASK_TYPE_URGENT.equals(task.getTaskType())) {
+            return ScheduleConstants.URGENCY_WEIGHT_URGENT;
+        }
+        return ScheduleConstants.URGENCY_WEIGHT_NORMAL;
     }
 
     private List<DetectTask> getPendingTasks(List<Long> taskIds) {
@@ -466,7 +508,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .collect(Collectors.groupingBy(ScheduleResultVO::getInstrumentId));
 
         for (Map.Entry<Long, List<ScheduleResultVO>> entry : byInstrument.entrySet()) {
-            List<ScheduleResultVO>> list = entry.getValue();
+            List<ScheduleResultVO> list = entry.getValue();
             list.sort(Comparator.comparing(ScheduleResultVO::getStartTime));
             for (int i = 0; i < list.size() - 1; i++) {
                 ScheduleResultVO curr = list.get(i);
@@ -497,7 +539,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .collect(Collectors.groupingBy(ScheduleResultVO::getDetectPersonId));
 
         for (Map.Entry<Long, List<ScheduleResultVO>> entry : byPerson.entrySet()) {
-            List<ScheduleResultVO>> list = entry.getValue();
+            List<ScheduleResultVO> list = entry.getValue();
             list.sort(Comparator.comparing(ScheduleResultVO::getStartTime));
             for (int i = 0; i < list.size() - 1; i++) {
                 ScheduleResultVO curr = list.get(i);
@@ -533,8 +575,49 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (sr == null) {
             throw new BusinessException("排程记录不存在");
         }
-        if (!ScheduleConstants.SCHEDULE_STATUS_SCHEDULED.equals(sr.getStatus())) {
-            throw new BusinessException("只有已排程状态可以调整");
+        if (!ScheduleConstants.SCHEDULE_STATUS_SCHEDULED.equals(sr.getStatus())
+                && !ScheduleConstants.SCHEDULE_STATUS_ADJUSTED.equals(sr.getStatus())) {
+            throw new BusinessException("只有已排程或已调整状态可以调整");
+        }
+
+        Long targetInstrumentId = dto.getNewInstrumentId() != null ? dto.getNewInstrumentId() : sr.getInstrumentId();
+        Long targetPersonId = dto.getNewDetectPersonId() != null ? dto.getNewDetectPersonId() : sr.getDetectPersonId();
+
+        List<ScheduleResult> instrumentSchedules = scheduleResultMapper.selectByInstrumentAndRange(
+                targetInstrumentId,
+                dto.getNewStartTime().toLocalDate(),
+                dto.getNewEndTime().toLocalDate()
+        );
+
+        for (ScheduleResult existing : instrumentSchedules) {
+            if (existing.getId().equals(dto.getId())) {
+                continue;
+            }
+            if (dto.getNewStartTime().isBefore(existing.getEndTime())
+                    && dto.getNewEndTime().isAfter(existing.getStartTime())) {
+                throw new BusinessException(
+                        String.format("目标仪器在 %s ~ %s 已有排程冲突（任务：%s）",
+                                existing.getStartTime(), existing.getEndTime(), existing.getTaskCode()));
+            }
+        }
+
+        if (targetPersonId != null) {
+            List<ScheduleResult> personSchedules = scheduleResultMapper.selectByPersonAndRange(
+                    targetPersonId,
+                    dto.getNewStartTime().toLocalDate(),
+                    dto.getNewEndTime().toLocalDate()
+            );
+            for (ScheduleResult existing : personSchedules) {
+                if (existing.getId().equals(dto.getId())) {
+                    continue;
+                }
+                if (dto.getNewStartTime().isBefore(existing.getEndTime())
+                        && dto.getNewEndTime().isAfter(existing.getStartTime())) {
+                    throw new BusinessException(
+                            String.format("目标人员在 %s ~ %s 已有排程冲突（任务：%s）",
+                                    existing.getStartTime(), existing.getEndTime(), existing.getTaskCode()));
+                }
+            }
         }
 
         ScheduleResult adjusted = new ScheduleResult();

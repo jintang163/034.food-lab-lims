@@ -86,6 +86,22 @@
         ORDER BY sr.schedule_date, sr.start_time, sr.sort_order
     </select>
 
+    <select id="selectByBatchNo" resultType="com.foodlab.schedule.entity.ScheduleResult">
+        SELECT * FROM schedule_result
+        WHERE schedule_batch_no = #{batchNo}
+          AND deleted = 0
+        ORDER BY schedule_date, start_time, sort_order
+    </select>
+
+    <select id="selectByInstrumentAndDate" resultType="com.foodlab.schedule.entity.ScheduleResult">
+        SELECT * FROM schedule_result
+        WHERE instrument_id = #{instrumentId}
+          AND schedule_date = #{scheduleDate}
+          AND deleted = 0
+          AND status IN ('SCHEDULED', 'IN_PROGRESS', 'ADJUSTED')
+        ORDER BY start_time
+    </select>
+
     <select id="selectByInstrumentAndRange" resultType="com.foodlab.schedule.entity.ScheduleResult">
         SELECT * FROM schedule_result
         WHERE instrument_id = #{instrumentId}
