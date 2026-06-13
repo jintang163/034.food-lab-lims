@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.foodlab.common.constant.DetectConstants;
 import com.foodlab.common.constant.TaskConstants;
 import com.foodlab.common.domain.OfflineSyncResult;
+import com.foodlab.common.event.DetectResultUnqualifiedEvent;
 import com.foodlab.common.event.TaskCompletedEvent;
 import com.foodlab.common.exception.BusinessException;
 import com.foodlab.common.result.ResultCode;
@@ -123,6 +124,21 @@ public class DetectResultServiceImpl extends ServiceImpl<DetectResultMapper, Det
         }
 
         saveOrUpdate(result);
+
+        if (DetectConstants.JUDGE_UNQUALIFIED.equals(autoJudge)) {
+            eventPublisher.publishEvent(new DetectResultUnqualifiedEvent(
+                    this,
+                    result.getId(),
+                    result.getSampleId(),
+                    result.getSampleCode(),
+                    result.getDetectItemId(),
+                    result.getDetectItemName(),
+                    dto.getTaskId(),
+                    userId,
+                    null
+            ));
+            log.info("检测结果不合格，发布不合格事件，检测结果ID：{}，样品ID：{}", result.getId(), result.getSampleId());
+        }
 
         if (dto.getRawDataList() != null && !dto.getRawDataList().isEmpty()) {
             List<DetectRawData> rawDataList = new ArrayList<>();

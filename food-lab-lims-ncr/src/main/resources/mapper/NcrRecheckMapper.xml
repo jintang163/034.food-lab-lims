@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.ncr.mapper.NcrRecheckMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.ncr.entity.NcrRecheck">
+        <id column="id" property="id"/>
+        <result column="ncr_id" property="ncrId"/>
+        <result column="ncr_code" property="ncrCode"/>
+        <result column="recheck_count" property="recheckCount"/>
+        <result column="recheck_status" property="recheckStatus"/>
+        <result column="task_id" property="taskId"/>
+        <result column="sample_id" property="sampleId"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="detect_item_id" property="detectItemId"/>
+        <result column="detect_item_name" property="detectItemName"/>
+        <result column="detect_method" property="detectMethod"/>
+        <result column="detect_standard" property="detectStandard"/>
+        <result column="instrument" property="instrument"/>
+        <result column="detect_time" property="detectTime"/>
+        <result column="detect_person_id" property="detectPersonId"/>
+        <result column="detect_person_name" property="detectPersonName"/>
+        <result column="result_type" property="resultType"/>
+        <result column="result_value" property="resultValue"/>
+        <result column="result_unit" property="resultUnit"/>
+        <result column="qualitative_result" property="qualitativeResult"/>
+        <result column="limit_type" property="limitType"/>
+        <result column="limit_value_min" property="limitValueMin"/>
+        <result column="limit_value_max" property="limitValueMax"/>
+        <result column="final_judge" property="finalJudge"/>
+        <result column="recheck_remark" property="recheckRemark"/>
+        <result column="attach_files" property="attachFiles"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+</mapper>

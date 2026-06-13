@@ -52,7 +52,12 @@ public enum ResultCode {
     FORM_DATA_INVALID(9005, "表单数据验证失败"),
     FORM_TEMPLATE_STATUS_ERROR(9006, "表单模板状态错误"),
     FORM_VERSION_EXIST(9007, "表单版本已存在"),
-    MIGRATION_NOT_FOUND(9008, "迁移记录不存在");
+    MIGRATION_NOT_FOUND(9008, "迁移记录不存在"),
+
+    NCR_NOT_FOUND(10001, "不合格品记录不存在"),
+    NCR_STATUS_ERROR(10002, "不合格品状态错误"),
+    NCR_ALREADY_EXIST(10003, "不合格品记录已存在"),
+    NCR_STAGE_ERROR(10004, "流程阶段错误");
 
     private final Integer code;
     private final String message;

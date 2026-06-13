@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.foodlab</groupId>
+        <artifactId>food-lab-lims</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>food-lab-lims-ncr</artifactId>
+    <name>food-lab-lims-ncr</name>
+    <description>不合格品处置模块 - 复检、原因分析、纠正措施、预防措施</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.foodlab</groupId>
+            <artifactId>food-lab-lims-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foodlab</groupId>
+            <artifactId>food-lab-lims-detect</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foodlab</groupId>
+            <artifactId>food-lab-lims-sample</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+        </dependency>
+    </dependencies>
+</project>

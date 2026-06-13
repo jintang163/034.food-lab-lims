@@ -22,6 +22,7 @@
         <module>food-lab-lims-audit</module>
         <module>food-lab-lims-report</module>
         <module>food-lab-lims-schedule</module>
+        <module>food-lab-lims-ncr</module>
         <module>food-lab-lims-web</module>
     </modules>
 
@@ -98,6 +99,11 @@
             <dependency>
                 <groupId>com.foodlab</groupId>
                 <artifactId>food-lab-lims-schedule</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foodlab</groupId>
+                <artifactId>food-lab-lims-ncr</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

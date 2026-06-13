@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.ncr.mapper.NcrRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.ncr.entity.NcrRecord">
+        <id column="id" property="id"/>
+        <result column="ncr_code" property="ncrCode"/>
+        <result column="ncr_source" property="ncrSource"/>
+        <result column="sample_id" property="sampleId"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="sample_name" property="sampleName"/>
+        <result column="detect_result_id" property="detectResultId"/>
+        <result column="detect_item_id" property="detectItemId"/>
+        <result column="detect_item_name" property="detectItemName"/>
+        <result column="unqualified_description" property="unqualifiedDescription"/>
+        <result column="ncr_status" property="ncrStatus"/>
+        <result column="current_stage" property="currentStage"/>
+        <result column="recheck_time" property="recheckTime"/>
+        <result column="cause_analysis_time" property="causeAnalysisTime"/>
+        <result column="corrective_action_time" property="correctiveActionTime"/>
+        <result column="preventive_action_time" property="preventiveActionTime"/>
+        <result column="close_time" property="closeTime"/>
+        <result column="close_person_id" property="closePersonId"/>
+        <result column="close_person_name" property="closePersonName"/>
+        <result column="close_remark" property="closeRemark"/>
+        <result column="remark" property="remark"/>
+        <result column="attach_files" property="attachFiles"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectNcrPage" resultMap="BaseResultMap">
+        SELECT * FROM ncr_record
+        <where>
+            deleted = 0
+            <if test="sampleCode != null and sampleCode != ''">
+                AND sample_code LIKE CONCAT('%', #{sampleCode}, '%')
+            </if>
+            <if test="detectItemName != null and detectItemName != ''">
+                AND detect_item_name LIKE CONCAT('%', #{detectItemName}, '%')
+            </if>
+            <if test="ncrStatus != null and ncrStatus != ''">
+                AND ncr_status = #{ncrStatus}
+            </if>
+            <if test="ncrSource != null and ncrSource != ''">
+                AND ncr_source = #{ncrSource}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND create_time &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND create_time &lt;= CONCAT(#{endDate}, ' 23:59:59')
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>
