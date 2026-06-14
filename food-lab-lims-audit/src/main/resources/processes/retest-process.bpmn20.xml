@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://flowable.org/retest">
+
+    <process id="retestProcess" name="复测子流程" isExecutable="true">
+
+        <startEvent id="retestStart" name="发起复测">
+            <extensionElements>
+                <flowable:formProperty id="taskId" name="任务ID" type="long" required="true"/>
+                <flowable:formProperty id="originalResultId" name="原检测结果ID" type="long" required="true"/>
+                <flowable:formProperty id="triggerAuditId" name="触发审核ID" type="long" required="true"/>
+                <flowable:formProperty id="triggerReason" name="复测原因" type="string" required="true"/>
+                <flowable:formProperty id="retesterId" name="复测人ID" type="long" required="true"/>
+                <flowable:formProperty id="sampleCode" name="样品编号" type="string"/>
+                <flowable:formProperty id="detectItemName" name="检测项目" type="string"/>
+            </extensionElements>
+        </startEvent>
+
+        <serviceTask id="createRetestRecord" name="创建复测记录"
+                     flowable:delegateExpression="${retestCreateDelegate}"/>
+
+        <userTask id="retestDetectTask" name="复测检测"
+                  flowable:assignee="${retesterId}"
+                  flowable:formKey="retest-detect-form">
+            <extensionElements>
+                <flowable:taskListener event="create" delegateExpression="${retestCreateListener}"/>
+                <flowable:taskListener event="complete" delegateExpression="${retestCompleteListener}"/>
+            </extensionElements>
+        </userTask>
+
+        <exclusiveGateway id="retestResultGateway" name="复测结果"/>
+
+        <endEvent id="retestEndEvent" name="复测完成"/>
+
+        <sequenceFlow id="rf1" sourceRef="retestStart" targetRef="createRetestRecord"/>
+        <sequenceFlow id="rf2" sourceRef="createRetestRecord" targetRef="retestDetectTask"/>
+        <sequenceFlow id="rf3" sourceRef="retestDetectTask" targetRef="retestResultGateway"/>
+        <sequenceFlow id="rf4" sourceRef="retestResultGateway" targetRef="retestEndEvent"/>
+
+    </process>
+
+</definitions>

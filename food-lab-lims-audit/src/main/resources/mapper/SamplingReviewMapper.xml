@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.audit.mapper.SamplingReviewMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.audit.entity.SamplingReview">
+        <id column="id" property="id"/>
+        <result column="task_id" property="taskId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="sample_rate" property="sampleRate"/>
+        <result column="review_type" property="reviewType"/>
+        <result column="review_status" property="reviewStatus"/>
+        <result column="reviewer_id" property="reviewerId"/>
+        <result column="reviewer_name" property="reviewerName"/>
+        <result column="review_time" property="reviewTime"/>
+        <result column="review_opinion" property="reviewOpinion"/>
+        <result column="remark" property="remark"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+</mapper>

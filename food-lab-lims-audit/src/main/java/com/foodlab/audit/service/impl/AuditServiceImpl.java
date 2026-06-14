@@ -7,9 +7,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.foodlab.audit.dto.AuditQueryDTO;
 import com.foodlab.audit.dto.AuditSubmitDTO;
+import com.foodlab.audit.dto.SamplingReviewDTO;
 import com.foodlab.audit.entity.AuditRecord;
+import com.foodlab.audit.entity.SamplingReview;
 import com.foodlab.audit.mapper.AuditRecordMapper;
+import com.foodlab.audit.mapper.SamplingReviewMapper;
 import com.foodlab.audit.service.AuditService;
+import com.foodlab.audit.vo.AuditFlowVO;
 import com.foodlab.audit.vo.AuditRecordVO;
 import com.foodlab.common.constant.AuditConstants;
 import com.foodlab.common.constant.DetectConstants;
@@ -54,6 +58,9 @@ public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord
     private DetectResultMapper detectResultMapper;
 
     @Autowired
+    private SamplingReviewMapper samplingReviewMapper;
+
+    @Autowired
     private RuntimeService runtimeService;
 
     @Autowired
@@ -77,13 +84,19 @@ public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord
         }
 
         boolean isPass = AuditConstants.AUDIT_RESULT_PASS.equals(dto.getAuditResult());
+        boolean isRetest = AuditConstants.AUDIT_RESULT_RETEST.equals(dto.getAuditResult());
 
-        currentRecord.setAuditStatus(isPass ? AuditConstants.AUDIT_STATUS_PASS : AuditConstants.AUDIT_STATUS_REJECT);
+        currentRecord.setAuditStatus(isPass ? AuditConstants.AUDIT_STATUS_PASS
+                : isRetest ? AuditConstants.AUDIT_STATUS_RETEST
+                : AuditConstants.AUDIT_STATUS_REJECT);
         currentRecord.setAuditorId(userId);
         currentRecord.setAuditorName(userName);
         currentRecord.setAuditTime(LocalDateTime.now());
         currentRecord.setAuditOpinion(dto.getAuditOpinion());
         currentRecord.setRemark(dto.getRemark());
+        currentRecord.setActionType(isPass ? AuditConstants.ACTION_TYPE_APPROVE
+                : isRetest ? AuditConstants.ACTION_TYPE_RETEST
+                : AuditConstants.ACTION_TYPE_REJECT);
         currentRecord.setUpdateBy(userId);
 
         updateById(currentRecord);
@@ -96,6 +109,8 @@ public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord
                 updateBusinessStatus(dto.getBusinessType(), dto.getBusinessId(), TaskConstants.TASK_STATUS_APPROVED);
                 updateDetectResultsAuditStatus(dto.getBusinessId(), DetectConstants.IS_AUDIT_YES);
             }
+        } else if (isRetest) {
+            updateBusinessStatus(dto.getBusinessType(), dto.getBusinessId(), TaskConstants.TASK_STATUS_RETEST);
         } else {
             updateBusinessStatus(dto.getBusinessType(), dto.getBusinessId(), TaskConstants.TASK_STATUS_REJECTED);
         }
@@ -136,7 +151,8 @@ public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord
         if (record == null) {
             throw new BusinessException(ResultCode.AUDIT_NOT_FOUND);
         }
-        return BeanUtil.copyProperties(record, AuditRecordVO.class);
+        AuditRecordVO vo = BeanUtil.copyProperties(record, AuditRecordVO.class);
+        return vo;
     }
 
     @Override
@@ -185,9 +201,15 @@ public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord
         variables.put("firstAuditorId", submitterId);
         variables.put("secondAuditorId", submitterId);
 
-        runtimeService.startProcessInstanceByKey("detectAuditProcess", String.valueOf(taskId), variables);
+        org.flowable.engine.runtime.ProcessInstance processInstance =
+                runtimeService.startProcessInstanceByKey("detectAuditProcess", String.valueOf(taskId), variables);
 
-        return String.valueOf(taskId);
+        if (task != null) {
+            task.setProcessInstanceId(processInstance.getId());
+            detectTaskMapper.updateById(task);
+        }
+
+        return processInstance.getId();
     }
 
     @Override
@@ -218,6 +240,7 @@ public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord
             Map<String, Object> taskMap = new HashMap<>();
             taskMap.put("taskId", task.getId());
             taskMap.put("taskName", task.getName());
+            taskMap.put("taskDefinitionKey", task.getTaskDefinitionKey());
             taskMap.put("processInstanceId", task.getProcessInstanceId());
             taskMap.put("createTime", task.getCreateTime());
             taskMap.put("assignee", task.getAssignee());
@@ -261,6 +284,214 @@ public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord
             result.add(activityMap);
         }
         return result;
+    }
+
+    @Override
+    public AuditFlowVO getAuditFlow(String processInstanceId) {
+        HistoricProcessInstance processInstance = historyService.createHistoricProcessInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .singleResult();
+
+        if (processInstance == null) {
+            throw new BusinessException(ResultCode.AUDIT_NOT_FOUND, "流程实例不存在");
+        }
+
+        AuditFlowVO flowVO = new AuditFlowVO();
+        flowVO.setProcessInstanceId(processInstanceId);
+        flowVO.setBusinessCode(processInstance.getBusinessKey());
+        flowVO.setCurrentStatus(processInstance.getEndTime() == null ? "RUNNING" : "COMPLETED");
+
+        List<HistoricActivityInstance> activities = historyService.createHistoricActivityInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .activityType("userTask")
+                .orderByHistoricActivityInstanceStartTime()
+                .asc()
+                .list();
+
+        List<AuditFlowVO.AuditNodeVO> nodes = new ArrayList<>();
+
+        AuditFlowVO.AuditNodeVO submitNode = new AuditFlowVO.AuditNodeVO();
+        submitNode.setNodeCode("startEvent");
+        submitNode.setNodeName("提交审核");
+        submitNode.setNodeType("start");
+        submitNode.setStatus("completed");
+        submitNode.setAuditorName(processInstance.getStartUserId());
+        submitNode.setAuditTime(processInstance.getStartTime());
+        nodes.add(submitNode);
+
+        for (HistoricActivityInstance activity : activities) {
+            AuditFlowVO.AuditNodeVO node = new AuditFlowVO.AuditNodeVO();
+            node.setNodeCode(activity.getActivityId());
+            node.setNodeName(activity.getActivityName());
+            node.setNodeType("audit");
+            node.setAuditorId(activity.getAssignee() != null ? Long.parseLong(activity.getAssignee()) : null);
+            node.setAuditorName(activity.getAssignee());
+            node.setAuditTime(activity.getStartTime());
+
+            if (activity.getEndTime() != null) {
+                node.setStatus("completed");
+            } else {
+                node.setStatus("pending");
+            }
+
+            List<HistoricTaskInstance> taskInstances = historyService.createHistoricTaskInstanceQuery()
+                    .processInstanceId(processInstanceId)
+                    .taskDefinitionKey(activity.getActivityId())
+                    .list();
+
+            if (!taskInstances.isEmpty()) {
+                HistoricTaskInstance taskInstance = taskInstances.get(0);
+                if (StrUtil.isNotBlank(taskInstance.getDeleteReason())) {
+                    node.setActionType(taskInstance.getDeleteReason());
+                }
+            }
+
+            nodes.add(node);
+        }
+
+        if (processInstance.getEndTime() != null) {
+            AuditFlowVO.AuditNodeVO endNode = new AuditFlowVO.AuditNodeVO();
+            endNode.setNodeCode("endEvent");
+            endNode.setNodeType("end");
+            endNode.setAuditTime(processInstance.getEndTime());
+
+            List<AuditRecord> auditRecords = auditRecordMapper.selectByBusiness("task",
+                    Long.parseLong(processInstance.getBusinessKey() != null ? processInstance.getBusinessKey() : "0"));
+
+            boolean allPass = auditRecords.stream()
+                    .allMatch(r -> AuditConstants.AUDIT_STATUS_PASS.equals(r.getAuditStatus()));
+            boolean hasReject = auditRecords.stream()
+                    .anyMatch(r -> AuditConstants.AUDIT_STATUS_REJECT.equals(r.getAuditStatus()));
+            boolean hasRetest = auditRecords.stream()
+                    .anyMatch(r -> AuditConstants.AUDIT_STATUS_RETEST.equals(r.getAuditStatus()));
+
+            if (allPass) {
+                endNode.setNodeName("审核通过");
+                endNode.setStatus("approved");
+            } else if (hasReject) {
+                endNode.setNodeName("审核驳回");
+                endNode.setStatus("rejected");
+            } else if (hasRetest) {
+                endNode.setNodeName("发起复测");
+                endNode.setStatus("retest");
+            } else {
+                endNode.setNodeName("流程结束");
+                endNode.setStatus("completed");
+            }
+            nodes.add(endNode);
+        }
+
+        flowVO.setNodes(nodes);
+        return flowVO;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectToSubmitter(String flowTaskId, String reason, Long userId, String userName) {
+        Task task = taskService.createTaskQuery().taskId(flowTaskId).singleResult();
+        if (task == null) {
+            throw new BusinessException(ResultCode.AUDIT_NOT_FOUND, "审核任务不存在");
+        }
+
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("auditResult", "REJECT");
+        variables.put("auditComment", reason);
+        variables.put("auditorId", userId);
+        variables.put("auditorName", userName);
+        variables.put("rejectReason", reason);
+
+        taskService.complete(flowTaskId, variables);
+
+        Long taskId = (Long) taskService.getVariable(flowTaskId, "taskId");
+        if (taskId != null) {
+            DetectTask detectTask = detectTaskMapper.selectById(taskId);
+            if (detectTask != null) {
+                detectTask.setTaskStatus(TaskConstants.TASK_STATUS_SUBMITTED);
+                detectTaskMapper.updateById(detectTask);
+            }
+        }
+
+        log.info("审核驳回至检测人员，流程任务ID：{}，驳回原因：{}", flowTaskId, reason);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void triggerRetest(String flowTaskId, Long retesterId, String reason, Long userId, String userName) {
+        Task task = taskService.createTaskQuery().taskId(flowTaskId).singleResult();
+        if (task == null) {
+            throw new BusinessException(ResultCode.AUDIT_NOT_FOUND, "审核任务不存在");
+        }
+
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("auditResult", "RETEST");
+        variables.put("auditComment", reason);
+        variables.put("auditorId", userId);
+        variables.put("auditorName", userName);
+        variables.put("retesterId", retesterId);
+        variables.put("retestReason", reason);
+
+        taskService.complete(flowTaskId, variables);
+
+        Long taskId = (Long) taskService.getVariable(flowTaskId, "taskId");
+        if (taskId != null) {
+            DetectTask detectTask = detectTaskMapper.selectById(taskId);
+            if (detectTask != null) {
+                detectTask.setTaskStatus(TaskConstants.TASK_STATUS_RETEST);
+                detectTaskMapper.updateById(detectTask);
+            }
+        }
+
+        log.info("发起复测，流程任务ID：{}，复测人ID：{}，原因：{}", flowTaskId, retesterId, reason);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SamplingReview createSamplingReview(SamplingReviewDTO dto, Long userId, String userName) {
+        SamplingReview review = new SamplingReview();
+        review.setSampleRate(dto.getSampleRate());
+        review.setReviewType(dto.getReviewType());
+        review.setReviewStatus(AuditConstants.SAMPLING_REVIEW_STATUS_PENDING);
+        review.setReviewerId(userId);
+        review.setReviewerName(userName);
+        review.setRemark(dto.getRemark());
+        review.setCreateBy(userId);
+        review.setUpdateBy(userId);
+        samplingReviewMapper.insert(review);
+
+        log.info("创建随机抽样复审，抽样率：{}，类型：{}", dto.getSampleRate(), dto.getReviewType());
+        return review;
+    }
+
+    @Override
+    public List<SamplingReview> getPendingSamplingReviews() {
+        return samplingReviewMapper.selectPendingReviews();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void completeSamplingReview(Long reviewId, String result, String opinion, Long userId, String userName) {
+        SamplingReview review = samplingReviewMapper.selectById(reviewId);
+        if (review == null) {
+            throw new BusinessException(ResultCode.SAMPLING_REVIEW_NOT_FOUND);
+        }
+
+        review.setReviewStatus(result);
+        review.setReviewOpinion(opinion);
+        review.setReviewerId(userId);
+        review.setReviewerName(userName);
+        review.setReviewTime(LocalDateTime.now());
+        review.setUpdateBy(userId);
+        samplingReviewMapper.updateById(review);
+
+        if (AuditConstants.SAMPLING_REVIEW_STATUS_REJECT.equals(result) && review.getTaskId() != null) {
+            DetectTask task = detectTaskMapper.selectById(review.getTaskId());
+            if (task != null) {
+                task.setTaskStatus(TaskConstants.TASK_STATUS_REJECTED);
+                detectTaskMapper.updateById(task);
+            }
+        }
+
+        log.info("完成抽样复审，复审ID：{}，结果：{}", reviewId, result);
     }
 
     private void createSecondLevelAudit(AuditSubmitDTO dto, Long previousAuditId, Long userId) {

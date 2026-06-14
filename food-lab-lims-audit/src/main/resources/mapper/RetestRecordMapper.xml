@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foodlab.audit.mapper.RetestRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.foodlab.audit.entity.RetestRecord">
+        <id column="id" property="id"/>
+        <result column="retest_code" property="retestCode"/>
+        <result column="original_result_id" property="originalResultId"/>
+        <result column="task_id" property="taskId"/>
+        <result column="sample_code" property="sampleCode"/>
+        <result column="detect_item_name" property="detectItemName"/>
+        <result column="trigger_audit_id" property="triggerAuditId"/>
+        <result column="trigger_reason" property="triggerReason"/>
+        <result column="original_value" property="originalValue"/>
+        <result column="original_judge" property="originalJudge"/>
+        <result column="retest_value" property="retestValue"/>
+        <result column="retest_judge" property="retestJudge"/>
+        <result column="adopted_result" property="adoptedResult"/>
+        <result column="retest_status" property="retestStatus"/>
+        <result column="retester_id" property="retesterId"/>
+        <result column="retester_name" property="retesterName"/>
+        <result column="retest_time" property="retestTime"/>
+        <result column="adopter_id" property="adopterId"/>
+        <result column="adopter_name" property="adopterName"/>
+        <result column="adopt_time" property="adoptTime"/>
+        <result column="adopt_opinion" property="adoptOpinion"/>
+        <result column="process_instance_id" property="processInstanceId"/>
+        <result column="remark" property="remark"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+</mapper>

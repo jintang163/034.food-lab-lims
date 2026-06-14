@@ -36,5 +36,11 @@ public class AuditRecord extends BaseEntity {
 
     private Long nextAuditId;
 
+    private Long retestId;
+
+    private String processInstanceId;
+
+    private String actionType;
+
     private String remark;
 }

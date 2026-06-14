@@ -52,6 +52,12 @@ public class CodeGenerator {
         return "NCR" + date + uuid.substring(0, 8).toUpperCase();
     }
 
+    public static String generateRetestCode() {
+        String date = LocalDateTime.now().format(DATE_FORMATTER);
+        String uuid = IdUtil.objectId().toUpperCase();
+        return "RT" + date + uuid.substring(0, 8).toUpperCase();
+    }
+
     public static String generateBarcode(String code) {
         return code;
     }

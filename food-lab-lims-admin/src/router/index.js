@@ -93,6 +93,12 @@ const routes = [
         name: 'AuditHistory',
         component: () => import('@/views/audit/history.vue'),
         meta: { title: '审核历史', icon: 'History', requiresAuth: true }
+      },
+      {
+        path: 'sampling',
+        name: 'SamplingReview',
+        component: () => import('@/views/audit/sampling.vue'),
+        meta: { title: '抽样复审', icon: 'Checked', requiresAuth: true }
       }
     ]
   },

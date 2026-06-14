@@ -15,6 +15,7 @@
             <el-select v-model="searchForm.result" placeholder="请选择" clearable style="width: 120px">
               <el-option label="通过" value="approved" />
               <el-option label="驳回" value="rejected" />
+              <el-option label="复测" value="retest" />
             </el-select>
           </el-form-item>
           <el-form-item label="审核人">
@@ -44,8 +45,8 @@
         <el-table-column prop="auditor" label="审核人" width="100" />
         <el-table-column prop="result" label="结果" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.result === 'approved' ? 'success' : 'danger'" size="small">
-              {{ row.result === 'approved' ? '通过' : '驳回' }}
+            <el-tag :type="getResultTagType(row.result)" size="small">
+              {{ getResultText(row.result) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -74,7 +75,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="detailVisible" title="审核历史详情" width="700px">
+    <el-dialog v-model="detailVisible" title="审核历史详情" width="900px" destroy-on-close>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="业务编号">{{ currentDetail.businessNo }}</el-descriptions-item>
         <el-descriptions-item label="审核类型">{{ getTypeText(currentDetail.type) }}</el-descriptions-item>
@@ -82,8 +83,8 @@
         <el-descriptions-item label="申请人">{{ currentDetail.applicant }}</el-descriptions-item>
         <el-descriptions-item label="审核人">{{ currentDetail.auditor }}</el-descriptions-item>
         <el-descriptions-item label="审核结果">
-          <el-tag :type="currentDetail.result === 'approved' ? 'success' : 'danger'" size="small">
-            {{ currentDetail.result === 'approved' ? '通过' : '驳回' }}
+          <el-tag :type="getResultTagType(currentDetail.result)" size="small">
+            {{ getResultText(currentDetail.result) }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="申请时间" :span="2">{{ currentDetail.applyTime }}</el-descriptions-item>
@@ -93,43 +94,62 @@
 
       <el-divider>审核流程</el-divider>
 
-      <el-steps :active="3" direction="vertical" finish-status="success">
-        <el-step title="提交申请">
-          <template #description>
-            <p>{{ currentDetail.applicant }} 提交申请</p>
-            <p style="color: #909399; font-size: 12px">{{ currentDetail.applyTime }}</p>
-          </template>
-        </el-step>
-        <el-step title="一级审核">
-          <template #description>
-            <p>张三 {{ currentDetail.result === 'approved' ? '审核通过' : '审核驳回' }}</p>
-            <p style="color: #909399; font-size: 12px">2024-01-16 10:30:00</p>
-          </template>
-        </el-step>
-        <el-step :status="currentDetail.result === 'approved' ? 'success' : 'error'" title="二级审核">
-          <template #description>
-            <p>{{ currentDetail.auditor }} {{ currentDetail.result === 'approved' ? '审核通过' : '审核驳回' }}</p>
-            <p style="color: #909399; font-size: 12px">{{ currentDetail.auditTime }}</p>
-            <p v-if="currentDetail.result === 'rejected' && currentDetail.auditOpinion" style="color: #f56c6c; font-size: 12px; margin-top: 5px">
-              驳回原因：{{ currentDetail.auditOpinion }}
-            </p>
-          </template>
-        </el-step>
-      </el-steps>
+      <AuditFlowChart :flow-data="flowData" @view-retest="handleViewRetest" />
+
+      <div v-if="opinionList.length > 0" style="margin-top: 16px">
+        <el-divider>历史审核意见</el-divider>
+        <el-timeline>
+          <el-timeline-item
+            v-for="(opinion, index) in opinionList"
+            :key="index"
+            :timestamp="opinion.time"
+            :type="getOpinionTimelineType(opinion.result)"
+            placement="top"
+          >
+            <el-card shadow="never" class="opinion-card">
+              <div class="opinion-header">
+                <span class="opinion-auditor">{{ opinion.auditor }}</span>
+                <el-tag :type="getOpinionTagType(opinion.result)" size="small">
+                  {{ opinion.level }} - {{ getResultText(opinion.result) }}
+                </el-tag>
+              </div>
+              <div class="opinion-content">{{ opinion.opinion || '无审核意见' }}</div>
+            </el-card>
+          </el-timeline-item>
+        </el-timeline>
+      </div>
 
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="compareVisible" title="复测结果对比" width="700px" destroy-on-close>
+      <RetestCompare :compare-data="compareData" @adopt="handleAdoptResult" />
     </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
+import AuditFlowChart from '@/components/audit/AuditFlowChart.vue'
+import RetestCompare from '@/components/audit/RetestCompare.vue'
+import { compareRetestResult, adoptRetestResult } from '@/api/audit'
 
 const loading = ref(false)
 const detailVisible = ref(false)
+const compareVisible = ref(false)
 const currentDetail = ref({})
+
+const flowData = ref({
+  processInstanceId: '',
+  businessCode: '',
+  currentStatus: '',
+  nodes: []
+})
+
+const opinionList = ref([])
+const compareData = ref({})
 
 const searchForm = reactive({
   type: '',
@@ -144,14 +164,14 @@ const pagination = reactive({
 })
 
 const tableData = ref([
-  { id: 1, businessNo: 'SP202401001', type: 'sample', title: '牛奶样品-001 检测申请', applicant: '张三', auditor: '主管A', result: 'approved', applyTime: '2024-01-15 09:30:00', auditTime: '2024-01-15 14:30:00', auditOpinion: '符合检测要求，同意' },
-  { id: 2, businessNo: 'TK202401002', type: 'task', title: '猪肉样品-002 任务分配', applicant: '李四', auditor: '主管B', result: 'approved', applyTime: '2024-01-16 10:15:00', auditTime: '2024-01-16 15:00:00', auditOpinion: '同意分配' },
-  { id: 3, businessNo: 'RP202401003', type: 'report', title: '蔬菜样品-003 报告出具', applicant: '王五', auditor: '主管A', result: 'rejected', applyTime: '2024-01-14 08:45:00', auditTime: '2024-01-14 16:20:00', auditOpinion: '检测数据不完整，请补充后重新提交' },
-  { id: 4, businessNo: 'RT202401004', type: 'result', title: '饮用水-004 结果审核', applicant: '赵六', auditor: '主管C', result: 'approved', applyTime: '2024-01-13 14:20:00', auditTime: '2024-01-13 17:30:00', auditOpinion: '' },
-  { id: 5, businessNo: 'SP202401005', type: 'sample', title: '食用油-005 样品登记', applicant: '张三', auditor: '主管B', result: 'approved', applyTime: '2024-01-17 11:00:00', auditTime: '2024-01-17 14:00:00', auditOpinion: '资料齐全，同意登记' },
-  { id: 6, businessNo: 'TK202401006', type: 'task', title: '大米-006 任务分配', applicant: '李四', auditor: '主管A', result: 'approved', applyTime: '2024-01-18 09:10:00', auditTime: '2024-01-18 11:30:00', auditOpinion: '' },
-  { id: 7, businessNo: 'RP202401007', type: 'report', title: '鸡蛋-007 报告审核', applicant: '王五', auditor: '主管C', result: 'approved', applyTime: '2024-01-12 15:30:00', auditTime: '2024-01-12 17:00:00', auditOpinion: '报告数据完整，格式规范，同意出具' },
-  { id: 8, businessNo: 'RT202401008', type: 'result', title: '水果-008 结果审核', applicant: '赵六', auditor: '主管B', result: 'rejected', applyTime: '2024-01-11 10:45:00', auditTime: '2024-01-11 15:20:00', auditOpinion: '检测结果异常，需要复检确认' }
+  { id: 1, businessNo: 'SP202401001', type: 'sample', title: '牛奶样品-001 检测申请', applicant: '张三', auditor: '主管A', result: 'approved', applyTime: '2024-01-15 09:30:00', auditTime: '2024-01-15 14:30:00', auditOpinion: '符合检测要求，同意', processInstanceId: 'proc-001' },
+  { id: 2, businessNo: 'TK202401002', type: 'task', title: '猪肉样品-002 任务分配', applicant: '李四', auditor: '主管B', result: 'approved', applyTime: '2024-01-16 10:15:00', auditTime: '2024-01-16 15:00:00', auditOpinion: '同意分配', processInstanceId: 'proc-002' },
+  { id: 3, businessNo: 'RP202401003', type: 'report', title: '蔬菜样品-003 报告出具', applicant: '王五', auditor: '主管A', result: 'rejected', applyTime: '2024-01-14 08:45:00', auditTime: '2024-01-14 16:20:00', auditOpinion: '检测数据不完整，请补充后重新提交', processInstanceId: 'proc-003' },
+  { id: 4, businessNo: 'RT202401004', type: 'result', title: '饮用水-004 结果审核', applicant: '赵六', auditor: '主管C', result: 'approved', applyTime: '2024-01-13 14:20:00', auditTime: '2024-01-13 17:30:00', auditOpinion: '', processInstanceId: 'proc-004' },
+  { id: 5, businessNo: 'SP202401005', type: 'sample', title: '食用油-005 样品登记', applicant: '张三', auditor: '主管B', result: 'retest', applyTime: '2024-01-17 11:00:00', auditTime: '2024-01-17 14:00:00', auditOpinion: '检测结果存疑，需复测确认', processInstanceId: 'proc-005' },
+  { id: 6, businessNo: 'TK202401006', type: 'task', title: '大米-006 任务分配', applicant: '李四', auditor: '主管A', result: 'approved', applyTime: '2024-01-18 09:10:00', auditTime: '2024-01-18 11:30:00', auditOpinion: '', processInstanceId: 'proc-006' },
+  { id: 7, businessNo: 'RP202401007', type: 'report', title: '鸡蛋-007 报告审核', applicant: '王五', auditor: '主管C', result: 'approved', applyTime: '2024-01-12 15:30:00', auditTime: '2024-01-12 17:00:00', auditOpinion: '报告数据完整，格式规范，同意出具', processInstanceId: 'proc-007' },
+  { id: 8, businessNo: 'RT202401008', type: 'result', title: '水果-008 结果审核', applicant: '赵六', auditor: '主管B', result: 'rejected', applyTime: '2024-01-11 10:45:00', auditTime: '2024-01-11 15:20:00', auditOpinion: '检测结果异常，需要复检确认', processInstanceId: 'proc-008' }
 ])
 
 pagination.total = 68
@@ -164,6 +184,26 @@ const getTypeText = (type) => {
 const getTypeTag = (type) => {
   const map = { sample: 'primary', task: 'success', report: 'warning', result: 'info' }
   return map[type] || 'info'
+}
+
+const getResultText = (result) => {
+  const map = { approved: '通过', rejected: '驳回', retest: '复测' }
+  return map[result] || result
+}
+
+const getResultTagType = (result) => {
+  const map = { approved: 'success', rejected: 'danger', retest: 'warning' }
+  return map[result] || 'info'
+}
+
+const getOpinionTimelineType = (result) => {
+  const map = { approved: 'success', rejected: 'danger', retest: 'warning' }
+  return map[result] || 'primary'
+}
+
+const getOpinionTagType = (result) => {
+  const map = { approved: 'success', rejected: 'danger', retest: 'warning' }
+  return map[result] || 'info'
 }
 
 const handleSearch = () => {
@@ -181,6 +221,97 @@ const handleReset = () => {
 const handleView = (row) => {
   currentDetail.value = row
   detailVisible.value = true
+
+  flowData.value = {
+    processInstanceId: row.processInstanceId || '',
+    businessCode: row.businessNo,
+    currentStatus: 'COMPLETED',
+    nodes: buildFlowNodes(row)
+  }
+
+  opinionList.value = buildOpinionList(row)
+}
+
+const buildFlowNodes = (row) => {
+  const isRetest = row.result === 'retest'
+  const isRejected = row.result === 'rejected'
+  const nodes = [
+    { nodeCode: 'startEvent', nodeName: '提交审核', nodeType: 'start', status: 'completed', auditorName: row.applicant, auditTime: row.applyTime, auditOpinion: '', actionType: '' },
+    { nodeCode: 'firstAuditTask', nodeName: '一级审核', nodeType: 'audit', status: 'completed', auditorName: '主管A', auditTime: row.auditTime, auditOpinion: row.auditOpinion, actionType: isRetest ? 'RETEST' : isRejected ? 'REJECT' : '' }
+  ]
+
+  if (!isRetest) {
+    nodes.push({
+      nodeCode: 'secondAuditTask',
+      nodeName: '二级审核',
+      nodeType: 'audit',
+      status: 'completed',
+      auditorName: row.auditor,
+      auditTime: row.auditTime,
+      auditOpinion: '',
+      actionType: isRejected ? 'REJECT' : ''
+    })
+  }
+
+  if (isRetest) {
+    nodes.push({ nodeCode: 'retestCallActivity', nodeName: '复测', nodeType: 'audit', status: 'retest', auditorName: '', auditTime: '', auditOpinion: '', actionType: 'RETEST' })
+    nodes.push({ nodeCode: 'endEvent', nodeName: '发起复测', nodeType: 'end', status: 'retest', auditorName: '', auditTime: row.auditTime, auditOpinion: '' })
+  } else if (isRejected) {
+    nodes.push({ nodeCode: 'endEvent', nodeName: '审核驳回', nodeType: 'end', status: 'rejected', auditorName: '', auditTime: row.auditTime, auditOpinion: '' })
+  } else {
+    nodes.push({ nodeCode: 'endEvent', nodeName: '审核通过', nodeType: 'end', status: 'approved', auditorName: '', auditTime: row.auditTime, auditOpinion: '' })
+  }
+
+  return nodes
+}
+
+const buildOpinionList = (row) => {
+  const list = []
+
+  list.push({
+    auditor: '主管A',
+    level: '一级审核',
+    result: row.result === 'rejected' ? 'rejected' : 'approved',
+    opinion: row.auditOpinion,
+    time: row.auditTime
+  })
+
+  if (row.result !== 'retest') {
+    list.push({
+      auditor: row.auditor,
+      level: '二级审核',
+      result: row.result,
+      opinion: '',
+      time: row.auditTime
+    })
+  }
+
+  return list
+}
+
+const handleViewRetest = (retestId) => {
+  compareData.value = {
+    retestId: retestId,
+    retestCode: 'RT202401001',
+    originalValue: '0.05',
+    originalJudge: 'qualified',
+    retestValue: '0.03',
+    retestJudge: 'qualified',
+    valueChanged: true,
+    judgeChanged: false,
+    adoptedResult: 'RETEST',
+    adoptOpinion: '复测结果更准确，采用复测值'
+  }
+  compareVisible.value = true
+}
+
+const handleAdoptResult = async (data) => {
+  try {
+    await adoptRetestResult(data)
+    compareVisible.value = false
+  } catch {
+    compareVisible.value = false
+  }
 }
 </script>
 
@@ -194,6 +325,29 @@ const handleView = (row) => {
     margin-top: 20px;
     display: flex;
     justify-content: flex-end;
+  }
+
+  .opinion-card {
+    :deep(.el-card__body) {
+      padding: 12px;
+    }
+
+    .opinion-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+
+      .opinion-auditor {
+        font-weight: 500;
+        color: #303133;
+      }
+    }
+
+    .opinion-content {
+      font-size: 13px;
+      color: #606266;
+    }
   }
 }
 </style>

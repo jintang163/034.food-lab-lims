@@ -16,6 +16,9 @@
         <result column="audit_opinion" property="auditOpinion"/>
         <result column="previous_audit_id" property="previousAuditId"/>
         <result column="next_audit_id" property="nextAuditId"/>
+        <result column="retest_id" property="retestId"/>
+        <result column="process_instance_id" property="processInstanceId"/>
+        <result column="action_type" property="actionType"/>
         <result column="remark" property="remark"/>
         <result column="deleted" property="deleted"/>
         <result column="create_by" property="createBy"/>

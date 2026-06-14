@@ -4,11 +4,11 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.foodlab.audit.dto.AuditQueryDTO;
 import com.foodlab.audit.dto.AuditSubmitDTO;
+import com.foodlab.audit.dto.SamplingReviewDTO;
 import com.foodlab.audit.entity.AuditRecord;
+import com.foodlab.audit.entity.SamplingReview;
+import com.foodlab.audit.vo.AuditFlowVO;
 import com.foodlab.audit.vo.AuditRecordVO;
-import org.flowable.task.api.Task;
-import org.flowable.engine.history.HistoricProcessInstance;
-import org.flowable.task.api.history.HistoricTaskInstance;
 
 import java.util.List;
 import java.util.Map;
@@ -34,4 +34,16 @@ public interface AuditService extends IService<AuditRecord> {
     List<Map<String, Object>> getMyAuditTasks(Long userId);
 
     List<Map<String, Object>> getProcessHistory(String processInstanceId);
+
+    AuditFlowVO getAuditFlow(String processInstanceId);
+
+    void rejectToSubmitter(String flowTaskId, String reason, Long userId, String userName);
+
+    void triggerRetest(String flowTaskId, Long retesterId, String reason, Long userId, String userName);
+
+    SamplingReview createSamplingReview(SamplingReviewDTO dto, Long userId, String userName);
+
+    List<SamplingReview> getPendingSamplingReviews();
+
+    void completeSamplingReview(Long reviewId, String result, String opinion, Long userId, String userName);
 }

@@ -36,6 +36,10 @@ public enum ResultCode {
 
     AUDIT_NOT_FOUND(5001, "审核记录不存在"),
     AUDIT_STATUS_ERROR(5002, "审核状态错误"),
+    RETEST_NOT_FOUND(5003, "复测记录不存在"),
+    RETEST_STATUS_ERROR(5004, "复测状态错误"),
+    SAMPLING_REVIEW_NOT_FOUND(5005, "抽样复审记录不存在"),
+    DATA_NOT_FOUND(5100, "数据不存在"),
 
     REPORT_NOT_FOUND(6001, "报告不存在"),
     REPORT_GENERATE_FAIL(6002, "报告生成失败"),

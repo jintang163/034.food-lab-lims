@@ -50,6 +50,9 @@
             </extensionElements>
         </endEvent>
 
+        <serviceTask id="retestCallActivity" name="发起复测"
+                     flowable:delegateExpression="${retestTriggerDelegate}"/>
+
         <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="firstAuditTask"/>
         <sequenceFlow id="flow2" sourceRef="firstAuditTask" targetRef="firstAuditGateway"/>
 
@@ -62,6 +65,12 @@
         <sequenceFlow id="firstAuditReject" name="驳回" sourceRef="firstAuditGateway" targetRef="rejectedEndEvent">
             <conditionExpression xsi:type="tFormalExpression">
                 <![CDATA[${auditResult == 'REJECT'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="firstAuditRetest" name="发起复测" sourceRef="firstAuditGateway" targetRef="retestCallActivity">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${auditResult == 'RETEST'}]]>
             </conditionExpression>
         </sequenceFlow>
 
@@ -78,6 +87,14 @@
                 <![CDATA[${auditResult == 'REJECT'}]]>
             </conditionExpression>
         </sequenceFlow>
+
+        <sequenceFlow id="secondAuditRetest" name="发起复测" sourceRef="secondAuditGateway" targetRef="retestCallActivity">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${auditResult == 'RETEST'}]]>
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="retestToEnd" sourceRef="retestCallActivity" targetRef="rejectedEndEvent"/>
 
     </process>
 

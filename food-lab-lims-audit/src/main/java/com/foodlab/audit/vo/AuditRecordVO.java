@@ -33,6 +33,12 @@ public class AuditRecordVO {
 
     private Long nextAuditId;
 
+    private Long retestId;
+
+    private String processInstanceId;
+
+    private String actionType;
+
     private String remark;
 
     private LocalDateTime createTime;
