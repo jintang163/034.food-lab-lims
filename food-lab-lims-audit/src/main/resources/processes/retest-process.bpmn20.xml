@@ -15,6 +15,9 @@
                 <flowable:formProperty id="retesterId" name="复测人ID" type="long" required="true"/>
                 <flowable:formProperty id="sampleCode" name="样品编号" type="string"/>
                 <flowable:formProperty id="detectItemName" name="检测项目" type="string"/>
+                <flowable:formProperty id="retestFromNode" name="来源审核节点" type="string" required="true"/>
+                <flowable:formProperty id="triggerAuditorId" name="触发审核人ID" type="long"/>
+                <flowable:formProperty id="triggerAuditorName" name="触发审核人姓名" type="string"/>
             </extensionElements>
         </startEvent>
 
@@ -30,14 +33,25 @@
             </extensionElements>
         </userTask>
 
-        <exclusiveGateway id="retestResultGateway" name="复测结果"/>
+        <serviceTask id="prepareCompare" name="准备对比数据"
+                     flowable:delegateExpression="${retestPrepareCompareDelegate}"/>
+
+        <userTask id="retestAdoptTask" name="对比采用"
+                  flowable:assignee="${triggerAuditorId}"
+                  flowable:formKey="retest-adopt-form">
+            <extensionElements>
+                <flowable:taskListener event="create" delegateExpression="${retestAdoptCreateListener}"/>
+                <flowable:taskListener event="complete" delegateExpression="${retestAdoptCompleteListener}"/>
+            </extensionElements>
+        </userTask>
 
         <endEvent id="retestEndEvent" name="复测完成"/>
 
         <sequenceFlow id="rf1" sourceRef="retestStart" targetRef="createRetestRecord"/>
         <sequenceFlow id="rf2" sourceRef="createRetestRecord" targetRef="retestDetectTask"/>
-        <sequenceFlow id="rf3" sourceRef="retestDetectTask" targetRef="retestResultGateway"/>
-        <sequenceFlow id="rf4" sourceRef="retestResultGateway" targetRef="retestEndEvent"/>
+        <sequenceFlow id="rf3" sourceRef="retestDetectTask" targetRef="prepareCompare"/>
+        <sequenceFlow id="rf4" sourceRef="prepareCompare" targetRef="retestAdoptTask"/>
+        <sequenceFlow id="rf5" sourceRef="retestAdoptTask" targetRef="retestEndEvent"/>
 
     </process>
 

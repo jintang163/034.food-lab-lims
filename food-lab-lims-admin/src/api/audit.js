@@ -10,9 +10,17 @@ export function getAuditPendingList(params) {
 
 export function getAuditHistoryList(params) {
   return request({
-    url: '/audit/history',
+    url: '/audit/page',
     method: 'get',
     params
+  })
+}
+
+export function getAuditHistoryByBusiness(businessType, businessId) {
+  return request({
+    url: '/audit/history',
+    method: 'get',
+    params: { businessType, businessId }
   })
 }
 
@@ -115,6 +123,21 @@ export function createSamplingReview(data) {
   })
 }
 
+export function previewSamplingTasks(sampleRate, reviewType) {
+  return request({
+    url: '/audit/sampling-review/preview',
+    method: 'get',
+    params: { sampleRate, reviewType }
+  })
+}
+
+export function getSamplingReviewDetail(reviewId) {
+  return request({
+    url: `/audit/sampling-review/detail/${reviewId}`,
+    method: 'get'
+  })
+}
+
 export function getPendingSamplingReviews() {
   return request({
     url: '/audit/sampling-review/pending',
@@ -141,5 +164,13 @@ export function getMyAuditTasks() {
   return request({
     url: '/audit/my-tasks',
     method: 'get'
+  })
+}
+
+export function completeAuditTask(taskId, result, comment) {
+  return request({
+    url: '/audit/process/complete',
+    method: 'post',
+    params: { taskId, result, comment }
   })
 }

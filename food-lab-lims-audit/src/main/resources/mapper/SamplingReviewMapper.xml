@@ -14,6 +14,7 @@
         <result column="reviewer_name" property="reviewerName"/>
         <result column="review_time" property="reviewTime"/>
         <result column="review_opinion" property="reviewOpinion"/>
+        <result column="task_ids_str" property="taskIdsStr"/>
         <result column="remark" property="remark"/>
         <result column="deleted" property="deleted"/>
         <result column="create_by" property="createBy"/>
@@ -21,5 +22,31 @@
         <result column="update_by" property="updateBy"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
+
+    <sql id="Base_Column_List">
+        id, task_id, task_code, sample_code, sample_rate, review_type, review_status,
+        reviewer_id, reviewer_name, review_time, review_opinion, task_ids_str, remark,
+        deleted, create_by, create_time, update_by, update_time
+    </sql>
+
+    <select id="selectByTaskId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM sampling_review
+        WHERE task_id = #{taskId} AND deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectPendingReviews" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM sampling_review
+        WHERE review_status = 'PENDING' AND deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectAllReviewedTaskIds" resultType="java.lang.Long">
+        SELECT task_id
+        FROM sampling_review
+        WHERE deleted = 0 AND task_id IS NOT NULL
+    </select>
 
 </mapper>

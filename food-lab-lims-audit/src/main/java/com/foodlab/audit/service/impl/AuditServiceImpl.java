@@ -447,19 +447,119 @@ public class AuditServiceImpl extends ServiceImpl<AuditRecordMapper, AuditRecord
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SamplingReview createSamplingReview(SamplingReviewDTO dto, Long userId, String userName) {
+        return createSamplingReviewWithTasks(dto, userId, userName);
+    }
+
+    @Override
+    public List<com.foodlab.task.entity.DetectTask> previewSamplingTasks(Double sampleRate, String reviewType) {
+        List<com.foodlab.task.entity.DetectTask> allApprovedTasks = detectTaskMapper.selectApprovedTasksNotReviewed();
+        if (allApprovedTasks.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        int totalCount = allApprovedTasks.size();
+        int sampleCount = (int) Math.ceil(totalCount * sampleRate);
+        sampleCount = Math.max(1, Math.min(sampleCount, totalCount));
+
+        return selectRandomTasks(allApprovedTasks, sampleCount);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SamplingReview createSamplingReviewWithTasks(SamplingReviewDTO dto, Long userId, String userName) {
+        List<com.foodlab.task.entity.DetectTask> sampledTasks = previewSamplingTasks(dto.getSampleRate(), dto.getReviewType());
+
+        if (sampledTasks.isEmpty()) {
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "没有可抽样复审的任务");
+        }
+
+        String taskIdsStr = sampledTasks.stream()
+                .map(t -> String.valueOf(t.getId()))
+                .collect(Collectors.joining(","));
+
         SamplingReview review = new SamplingReview();
         review.setSampleRate(dto.getSampleRate());
         review.setReviewType(dto.getReviewType());
         review.setReviewStatus(AuditConstants.SAMPLING_REVIEW_STATUS_PENDING);
         review.setReviewerId(userId);
         review.setReviewerName(userName);
+        review.setTaskIdsStr(taskIdsStr);
+        review.setTaskIds(sampledTasks.stream().map(com.foodlab.task.entity.DetectTask::getId).collect(Collectors.toList()));
+        review.setSampledTasks(sampledTasks);
         review.setRemark(dto.getRemark());
         review.setCreateBy(userId);
         review.setUpdateBy(userId);
         samplingReviewMapper.insert(review);
 
-        log.info("创建随机抽样复审，抽样率：{}，类型：{}", dto.getSampleRate(), dto.getReviewType());
+        List<SamplingReview> reviews = new ArrayList<>();
+        for (com.foodlab.task.entity.DetectTask task : sampledTasks) {
+            SamplingReview itemReview = new SamplingReview();
+            itemReview.setTaskId(task.getId());
+            itemReview.setTaskCode(task.getTaskCode());
+            itemReview.setSampleCode(task.getSampleCode());
+            itemReview.setSampleRate(dto.getSampleRate());
+            itemReview.setReviewType(dto.getReviewType());
+            itemReview.setReviewStatus(AuditConstants.SAMPLING_REVIEW_STATUS_PENDING);
+            itemReview.setReviewerId(userId);
+            itemReview.setReviewerName(userName);
+            itemReview.setTaskIdsStr(taskIdsStr);
+            itemReview.setRemark(dto.getRemark());
+            itemReview.setCreateBy(userId);
+            itemReview.setUpdateBy(userId);
+            samplingReviewMapper.insert(itemReview);
+            reviews.add(itemReview);
+        }
+
+        review.setId(null);
+        review.setSampledTasks(sampledTasks);
+
+        log.info("创建随机抽样复审，抽样率：{}，类型：{}，抽取任务数：{}，任务ID：{}",
+                dto.getSampleRate(), dto.getReviewType(), sampledTasks.size(), taskIdsStr);
         return review;
+    }
+
+    @Override
+    public List<SamplingReview> getSamplingReviewDetail(Long reviewId) {
+        SamplingReview mainReview = samplingReviewMapper.selectById(reviewId);
+        if (mainReview == null || mainReview.getTaskIdsStr() == null) {
+            return new ArrayList<>();
+        }
+
+        String[] taskIdArr = mainReview.getTaskIdsStr().split(",");
+        List<Long> taskIds = new ArrayList<>();
+        for (String idStr : taskIdArr) {
+            try {
+                taskIds.add(Long.parseLong(idStr.trim()));
+            } catch (NumberFormatException e) {
+                // skip
+            }
+        }
+
+        List<SamplingReview> reviews = new ArrayList<>();
+        for (Long taskId : taskIds) {
+            List<SamplingReview> taskReviews = samplingReviewMapper.selectByTaskId(taskId);
+            if (!taskReviews.isEmpty()) {
+                reviews.add(taskReviews.get(0));
+            } else {
+                SamplingReview review = new SamplingReview();
+                review.setTaskId(taskId);
+                com.foodlab.task.entity.DetectTask task = detectTaskMapper.selectById(taskId);
+                if (task != null) {
+                    review.setTaskCode(task.getTaskCode());
+                    review.setSampleCode(task.getSampleCode());
+                }
+                review.setReviewStatus(AuditConstants.SAMPLING_REVIEW_STATUS_PENDING);
+                reviews.add(review);
+            }
+        }
+        return reviews;
+    }
+
+    private List<com.foodlab.task.entity.DetectTask> selectRandomTasks(
+            List<com.foodlab.task.entity.DetectTask> tasks, int count) {
+        List<com.foodlab.task.entity.DetectTask> shuffled = new ArrayList<>(tasks);
+        java.util.Collections.shuffle(shuffled);
+        return shuffled.subList(0, Math.min(count, shuffled.size()));
     }
 
     @Override

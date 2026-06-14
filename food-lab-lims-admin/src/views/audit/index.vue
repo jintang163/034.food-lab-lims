@@ -171,7 +171,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AuditFlowChart from '@/components/audit/AuditFlowChart.vue'
 import RetestCompare from '@/components/audit/RetestCompare.vue'
@@ -180,7 +180,10 @@ import {
   triggerRetest,
   compareRetestResult,
   adoptRetestResult,
-  getRetestByTaskId
+  getRetestByTaskId,
+  getMyAuditTasks,
+  getAuditFlow,
+  completeAuditTask
 } from '@/api/audit'
 
 const loading = ref(false)
@@ -221,16 +224,44 @@ const retestForm = reactive({
   retesterId: null
 })
 
-const tableData = ref([
-  { id: 1, businessNo: 'SP202401001', type: 'sample', title: '牛奶样品-001 检测申请', applicant: '张三', applyTime: '2024-01-15 09:30:00', currentNode: '一级审核', priority: 'normal', description: '常规牛奶检测项目', processInstanceId: 'proc-001' },
-  { id: 2, businessNo: 'TK202401002', type: 'task', title: '猪肉样品-002 任务分配', applicant: '李四', applyTime: '2024-01-16 10:15:00', currentNode: '二级审核', priority: 'high', description: '紧急检测任务，需要优先处理', processInstanceId: 'proc-002' },
-  { id: 3, businessNo: 'RP202401003', type: 'report', title: '蔬菜样品-003 报告出具', applicant: '王五', applyTime: '2024-01-14 08:45:00', currentNode: '一级审核', priority: 'normal', description: '蔬菜农残检测报告', processInstanceId: 'proc-003' },
-  { id: 4, businessNo: 'RT202401004', type: 'result', title: '饮用水-004 结果审核', applicant: '赵六', applyTime: '2024-01-13 14:20:00', currentNode: '二级审核', priority: 'low', description: '', processInstanceId: 'proc-004' },
-  { id: 5, businessNo: 'SP202401005', type: 'sample', title: '食用油-005 样品登记', applicant: '张三', applyTime: '2024-01-17 11:00:00', currentNode: '一级审核', priority: 'normal', description: '', processInstanceId: 'proc-005' },
-  { id: 6, businessNo: 'TK202401006', type: 'task', title: '大米-006 任务分配', applicant: '李四', applyTime: '2024-01-18 09:10:00', currentNode: '一级审核', priority: 'high', description: '重金属专项检测任务', processInstanceId: 'proc-006' }
-])
+const tableData = ref([])
 
-pagination.total = 24
+const fetchMyAuditTasks = async () => {
+  loading.value = true
+  try {
+    const data = await getMyAuditTasks()
+    if (data && Array.isArray(data)) {
+      tableData.value = data.map((item, index) => ({
+        id: index + 1,
+        flowTaskId: item.taskId,
+        businessNo: item.variables?.taskCode || item.processInstanceId,
+        type: getTypeFromTaskKey(item.taskDefinitionKey),
+        title: `${item.taskName} - ${item.variables?.sampleCode || item.processInstanceId}`,
+        applicant: item.variables?.submitterName || '待审核',
+        applyTime: item.createTime,
+        currentNode: item.taskName,
+        priority: item.variables?.priority || 'normal',
+        description: item.description || '',
+        processInstanceId: item.processInstanceId,
+        variables: item.variables
+      }))
+      pagination.total = data.length
+    }
+  } catch (e) {
+    console.error('获取待审核列表失败', e)
+    tableData.value = []
+    pagination.total = 0
+  } finally {
+    loading.value = false
+  }
+}
+
+const getTypeFromTaskKey = (key) => {
+  if (key?.includes('first')) return 'task'
+  if (key?.includes('second')) return 'task'
+  if (key?.includes('retestAdopt')) return 'result'
+  return 'task'
+}
 
 const getTypeText = (type) => {
   const map = { sample: '样品审核', task: '任务审核', report: '报告审核', result: '结果审核' }
@@ -262,50 +293,66 @@ const getRetestStatusText = (status) => {
   return map[status] || status
 }
 
-const handleSearch = () => {
-  loading.value = true
-  setTimeout(() => { loading.value = false }, 500)
-}
-
-const handleReset = () => {
-  searchForm.type = ''
-  searchForm.applicant = ''
-  handleSearch()
-}
-
 const handleView = async (row) => {
   currentDetail.value = row
   detailVisible.value = true
 
-  flowData.value = {
-    processInstanceId: row.processInstanceId || '',
-    businessCode: row.businessNo,
-    currentStatus: 'RUNNING',
-    nodes: [
-      { nodeCode: 'startEvent', nodeName: '提交审核', nodeType: 'start', status: 'completed', auditorName: row.applicant, auditTime: row.applyTime, auditOpinion: '', actionType: '' },
-      { nodeCode: 'firstAuditTask', nodeName: '一级审核', nodeType: 'audit', status: row.currentNode === '一级审核' ? 'pending' : 'completed', auditorName: row.currentNode === '一级审核' ? '' : '主管A', auditTime: row.currentNode === '一级审核' ? '' : '2024-01-16 10:30:00', auditOpinion: '', actionType: '' },
-      { nodeCode: 'secondAuditTask', nodeName: '二级审核', nodeType: 'audit', status: row.currentNode === '二级审核' ? 'pending' : 'completed', auditorName: row.currentNode === '二级审核' ? '' : '主管B', auditTime: '', auditOpinion: '', actionType: '' }
-    ]
+  try {
+    if (row.processInstanceId) {
+      flowData.value = await getAuditFlow(row.processInstanceId) || {
+        processInstanceId: row.processInstanceId,
+        businessCode: row.businessNo,
+        currentStatus: 'RUNNING',
+        nodes: []
+      }
+    }
+  } catch (e) {
+    console.error('获取流程图失败', e)
+    flowData.value = {
+      processInstanceId: row.processInstanceId || '',
+      businessCode: row.businessNo,
+      currentStatus: 'RUNNING',
+      nodes: [
+        { nodeCode: 'startEvent', nodeName: '提交审核', nodeType: 'start', status: 'completed', auditorName: row.applicant, auditTime: row.applyTime, auditOpinion: '', actionType: '' },
+        { nodeCode: 'firstAuditTask', nodeName: '一级审核', nodeType: 'audit', status: row.currentNode === '一级审核' ? 'pending' : 'completed', auditorName: row.currentNode === '一级审核' ? '' : '主管A', auditTime: row.currentNode === '一级审核' ? '' : '2024-01-16 10:30:00', auditOpinion: '', actionType: '' },
+        { nodeCode: 'secondAuditTask', nodeName: '二级审核', nodeType: 'audit', status: row.currentNode === '二级审核' ? 'pending' : 'completed', auditorName: row.currentNode === '二级审核' ? '' : '主管B', auditTime: '', auditOpinion: '', actionType: '' }
+      ]
+    }
   }
 
   try {
-    if (row.id) {
-      retestList.value = await getRetestByTaskId(row.id) || []
+    if (row.id || row.variables?.taskId) {
+      const taskId = row.variables?.taskId || row.id
+      retestList.value = await getRetestByTaskId(taskId) || []
     }
   } catch {
     retestList.value = []
   }
 }
 
-const handleApprove = (row) => {
-  ElMessageBox.confirm('确定要通过该审核吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'success'
-  }).then(() => {
-    ElMessage.success('审核通过')
-    detailVisible.value = false
-  }).catch(() => {})
+const handleApprove = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定要通过该审核吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'success'
+    })
+    
+    if (row.flowTaskId) {
+      await completeAuditTask(row.flowTaskId, 'PASS', '')
+      ElMessage.success('审核通过')
+      detailVisible.value = false
+      fetchMyAuditTasks()
+    } else {
+      ElMessage.success('审核通过')
+      detailVisible.value = false
+    }
+  } catch (e) {
+    if (e !== 'cancel') {
+      console.error('审核失败', e)
+      ElMessage.error('操作失败')
+    }
+  }
 }
 
 const handleReject = (row) => {
@@ -395,10 +442,25 @@ const handleAdoptResult = async (data) => {
     ElMessage.success('结果已采用')
     compareVisible.value = false
     detailVisible.value = false
+    fetchMyAuditTasks()
   } catch {
     ElMessage.error('操作失败')
   }
 }
+
+const handleSearch = () => {
+  fetchMyAuditTasks()
+}
+
+const handleReset = () => {
+  searchForm.type = ''
+  searchForm.applicant = ''
+  fetchMyAuditTasks()
+}
+
+onMounted(() => {
+  fetchMyAuditTasks()
+})
 </script>
 
 <style lang="scss" scoped>

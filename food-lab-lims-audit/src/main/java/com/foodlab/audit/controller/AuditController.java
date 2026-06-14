@@ -194,6 +194,20 @@ public class AuditController {
         return Result.success(auditService.createSamplingReview(dto, userId, userName));
     }
 
+    @Operation(summary = "预览抽样任务（按比率随机抽取）")
+    @GetMapping("/sampling-review/preview")
+    public Result<List<com.foodlab.task.entity.DetectTask>> previewSamplingTasks(
+            @RequestParam Double sampleRate,
+            @RequestParam(required = false, defaultValue = "RANDOM") String reviewType) {
+        return Result.success(auditService.previewSamplingTasks(sampleRate, reviewType));
+    }
+
+    @Operation(summary = "获取抽样复审详情（含各任务状态）")
+    @GetMapping("/sampling-review/detail/{reviewId}")
+    public Result<List<SamplingReview>> getSamplingReviewDetail(@PathVariable Long reviewId) {
+        return Result.success(auditService.getSamplingReviewDetail(reviewId));
+    }
+
     @Operation(summary = "获取待抽样复审列表")
     @GetMapping("/sampling-review/pending")
     public Result<List<SamplingReview>> getPendingSamplingReviews() {

@@ -9,7 +9,7 @@
         ref="formRef"
         :model="formData"
         :rules="formRules"
-        :label-width="templateInfo.labelWidth || '100px"
+        :label-width="templateInfo.labelWidth || '100px'"
         :label-position="templateInfo.labelPosition || 'right'"
         class="preview-form"
       >

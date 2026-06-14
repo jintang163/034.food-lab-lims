@@ -50,8 +50,43 @@
             </extensionElements>
         </endEvent>
 
-        <serviceTask id="retestCallActivity" name="发起复测"
-                     flowable:delegateExpression="${retestTriggerDelegate}"/>
+        <callActivity id="firstRetestCall" name="一审发起复测"
+                      calledElement="retestProcess"
+                      calledElementBinding="latest">
+            <extensionElements>
+                <flowable:in source="taskId" target="taskId"/>
+                <flowable:in source="originalResultId" target="originalResultId"/>
+                <flowable:in source="triggerAuditId" target="triggerAuditId"/>
+                <flowable:in source="retesterId" target="retesterId"/>
+                <flowable:in source="retestReason" target="triggerReason"/>
+                <flowable:in source="sampleCode" target="sampleCode"/>
+                <flowable:in source="detectItemName" target="detectItemName"/>
+                <flowable:in source="auditorId" target="triggerAuditorId"/>
+                <flowable:in source="auditorName" target="triggerAuditorName"/>
+                <flowable:in sourceExpression="'FIRST'" target="retestFromNode"/>
+                <flowable:out source="retestId" target="lastRetestId"/>
+                <flowable:out source="adoptedResult" target="lastAdoptedResult"/>
+            </extensionElements>
+        </callActivity>
+
+        <callActivity id="secondRetestCall" name="二审发起复测"
+                      calledElement="retestProcess"
+                      calledElementBinding="latest">
+            <extensionElements>
+                <flowable:in source="taskId" target="taskId"/>
+                <flowable:in source="originalResultId" target="originalResultId"/>
+                <flowable:in source="triggerAuditId" target="triggerAuditId"/>
+                <flowable:in source="retesterId" target="retesterId"/>
+                <flowable:in source="retestReason" target="triggerReason"/>
+                <flowable:in source="sampleCode" target="sampleCode"/>
+                <flowable:in source="detectItemName" target="detectItemName"/>
+                <flowable:in source="auditorId" target="triggerAuditorId"/>
+                <flowable:in source="auditorName" target="triggerAuditorName"/>
+                <flowable:in sourceExpression="'SECOND'" target="retestFromNode"/>
+                <flowable:out source="retestId" target="lastRetestId"/>
+                <flowable:out source="adoptedResult" target="lastAdoptedResult"/>
+            </extensionElements>
+        </callActivity>
 
         <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="firstAuditTask"/>
         <sequenceFlow id="flow2" sourceRef="firstAuditTask" targetRef="firstAuditGateway"/>
@@ -68,11 +103,13 @@
             </conditionExpression>
         </sequenceFlow>
 
-        <sequenceFlow id="firstAuditRetest" name="发起复测" sourceRef="firstAuditGateway" targetRef="retestCallActivity">
+        <sequenceFlow id="firstAuditRetest" name="发起复测" sourceRef="firstAuditGateway" targetRef="firstRetestCall">
             <conditionExpression xsi:type="tFormalExpression">
                 <![CDATA[${auditResult == 'RETEST'}]]>
             </conditionExpression>
         </sequenceFlow>
+
+        <sequenceFlow id="firstRetestBack" sourceRef="firstRetestCall" targetRef="firstAuditTask"/>
 
         <sequenceFlow id="flow3" sourceRef="secondAuditTask" targetRef="secondAuditGateway"/>
 
@@ -88,13 +125,13 @@
             </conditionExpression>
         </sequenceFlow>
 
-        <sequenceFlow id="secondAuditRetest" name="发起复测" sourceRef="secondAuditGateway" targetRef="retestCallActivity">
+        <sequenceFlow id="secondAuditRetest" name="发起复测" sourceRef="secondAuditGateway" targetRef="secondRetestCall">
             <conditionExpression xsi:type="tFormalExpression">
                 <![CDATA[${auditResult == 'RETEST'}]]>
             </conditionExpression>
         </sequenceFlow>
 
-        <sequenceFlow id="retestToEnd" sourceRef="retestCallActivity" targetRef="rejectedEndEvent"/>
+        <sequenceFlow id="secondRetestBack" sourceRef="secondRetestCall" targetRef="secondAuditTask"/>
 
     </process>
 

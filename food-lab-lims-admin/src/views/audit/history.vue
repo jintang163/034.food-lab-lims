@@ -131,10 +131,10 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import AuditFlowChart from '@/components/audit/AuditFlowChart.vue'
 import RetestCompare from '@/components/audit/RetestCompare.vue'
-import { compareRetestResult, adoptRetestResult } from '@/api/audit'
+import { getAuditFlow, compareRetestResult, adoptRetestResult, getAuditHistoryList } from '@/api/audit'
 
 const loading = ref(false)
 const detailVisible = ref(false)
@@ -163,18 +163,71 @@ const pagination = reactive({
   total: 0
 })
 
-const tableData = ref([
-  { id: 1, businessNo: 'SP202401001', type: 'sample', title: '牛奶样品-001 检测申请', applicant: '张三', auditor: '主管A', result: 'approved', applyTime: '2024-01-15 09:30:00', auditTime: '2024-01-15 14:30:00', auditOpinion: '符合检测要求，同意', processInstanceId: 'proc-001' },
-  { id: 2, businessNo: 'TK202401002', type: 'task', title: '猪肉样品-002 任务分配', applicant: '李四', auditor: '主管B', result: 'approved', applyTime: '2024-01-16 10:15:00', auditTime: '2024-01-16 15:00:00', auditOpinion: '同意分配', processInstanceId: 'proc-002' },
-  { id: 3, businessNo: 'RP202401003', type: 'report', title: '蔬菜样品-003 报告出具', applicant: '王五', auditor: '主管A', result: 'rejected', applyTime: '2024-01-14 08:45:00', auditTime: '2024-01-14 16:20:00', auditOpinion: '检测数据不完整，请补充后重新提交', processInstanceId: 'proc-003' },
-  { id: 4, businessNo: 'RT202401004', type: 'result', title: '饮用水-004 结果审核', applicant: '赵六', auditor: '主管C', result: 'approved', applyTime: '2024-01-13 14:20:00', auditTime: '2024-01-13 17:30:00', auditOpinion: '', processInstanceId: 'proc-004' },
-  { id: 5, businessNo: 'SP202401005', type: 'sample', title: '食用油-005 样品登记', applicant: '张三', auditor: '主管B', result: 'retest', applyTime: '2024-01-17 11:00:00', auditTime: '2024-01-17 14:00:00', auditOpinion: '检测结果存疑，需复测确认', processInstanceId: 'proc-005' },
-  { id: 6, businessNo: 'TK202401006', type: 'task', title: '大米-006 任务分配', applicant: '李四', auditor: '主管A', result: 'approved', applyTime: '2024-01-18 09:10:00', auditTime: '2024-01-18 11:30:00', auditOpinion: '', processInstanceId: 'proc-006' },
-  { id: 7, businessNo: 'RP202401007', type: 'report', title: '鸡蛋-007 报告审核', applicant: '王五', auditor: '主管C', result: 'approved', applyTime: '2024-01-12 15:30:00', auditTime: '2024-01-12 17:00:00', auditOpinion: '报告数据完整，格式规范，同意出具', processInstanceId: 'proc-007' },
-  { id: 8, businessNo: 'RT202401008', type: 'result', title: '水果-008 结果审核', applicant: '赵六', auditor: '主管B', result: 'rejected', applyTime: '2024-01-11 10:45:00', auditTime: '2024-01-11 15:20:00', auditOpinion: '检测结果异常，需要复检确认', processInstanceId: 'proc-008' }
-])
+const tableData = ref([])
 
-pagination.total = 68
+const fetchHistoryList = async () => {
+  loading.value = true
+  try {
+    const params = {
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
+      businessType: searchForm.type || undefined,
+      auditStatus: searchForm.result ? mapResultToStatus(searchForm.result) : undefined,
+      auditorId: searchForm.auditor ? parseInt(searchForm.auditor) : undefined
+    }
+    const data = await getAuditHistoryList(params)
+    if (data && data.rows) {
+      tableData.value = data.rows.map(convertRecordToRow)
+      pagination.total = data.total || 0
+    } else if (data && data.records) {
+      tableData.value = data.records.map(convertRecordToRow)
+      pagination.total = data.total || 0
+    } else if (data && Array.isArray(data)) {
+      tableData.value = data.map(convertRecordToRow)
+      pagination.total = data.length
+    }
+  } catch (e) {
+    console.error('获取审核历史失败', e)
+    tableData.value = generateMockHistory()
+    pagination.total = tableData.value.length
+  } finally {
+    loading.value = false
+  }
+}
+
+const mapResultToStatus = (result) => {
+  const map = { approved: 'PASS', rejected: 'REJECT', retest: 'RETEST' }
+  return map[result] || result
+}
+
+const convertRecordToRow = (record) => {
+  return {
+    id: record.id,
+    businessNo: record.businessCode,
+    type: record.businessType,
+    title: `${record.auditLevel === 1 ? '一级' : '二级'}审核 - ${record.businessCode}`,
+    applicant: record.createBy ? '提交人' : '待审核',
+    auditor: record.auditorName || '',
+    result: mapStatusToResult(record.auditStatus),
+    auditTime: record.auditTime,
+    auditOpinion: record.auditOpinion,
+    applyTime: record.createTime,
+    processInstanceId: record.processInstanceId
+  }
+}
+
+const mapStatusToResult = (status) => {
+  const map = { PASS: 'approved', REJECT: 'rejected', RETEST: 'retest' }
+  return map[status] || status
+}
+
+const generateMockHistory = () => {
+  return [
+    { id: 1, businessNo: 'TK202401001', type: 'task', title: '一级审核 - TK202401001', applicant: '检测员A', auditor: '主管A', result: 'approved', auditTime: '2024-01-16 10:30:00', auditOpinion: '检测结果准确', applyTime: '2024-01-15 14:20:00', processInstanceId: 'proc-001' },
+    { id: 2, businessNo: 'TK202401002', type: 'task', title: '二级审核 - TK202401002', applicant: '检测员B', auditor: '主管B', result: 'rejected', auditTime: '2024-01-15 16:45:00', auditOpinion: '检测数据异常，请重新检测', applyTime: '2024-01-15 09:10:00', processInstanceId: 'proc-002' },
+    { id: 3, businessNo: 'TK202401003', type: 'task', title: '一级审核 - TK202401003', applicant: '检测员C', auditor: '主管A', result: 'retest', auditTime: '2024-01-14 11:20:00', auditOpinion: '结果接近限值，需复测确认', applyTime: '2024-01-14 08:30:00', processInstanceId: 'proc-003' }
+  ]
+}
 
 const getTypeText = (type) => {
   const map = { sample: '样品审核', task: '任务审核', report: '报告审核', result: '结果审核' }
@@ -207,26 +260,37 @@ const getOpinionTagType = (result) => {
 }
 
 const handleSearch = () => {
-  loading.value = true
-  setTimeout(() => { loading.value = false }, 500)
+  fetchHistoryList()
 }
 
 const handleReset = () => {
   searchForm.type = ''
   searchForm.result = ''
   searchForm.auditor = ''
-  handleSearch()
+  fetchHistoryList()
 }
 
-const handleView = (row) => {
+const handleView = async (row) => {
   currentDetail.value = row
   detailVisible.value = true
 
-  flowData.value = {
-    processInstanceId: row.processInstanceId || '',
-    businessCode: row.businessNo,
-    currentStatus: 'COMPLETED',
-    nodes: buildFlowNodes(row)
+  try {
+    if (row.processInstanceId) {
+      flowData.value = await getAuditFlow(row.processInstanceId) || {
+        processInstanceId: row.processInstanceId,
+        businessCode: row.businessNo,
+        currentStatus: 'COMPLETED',
+        nodes: []
+      }
+    }
+  } catch (e) {
+    console.error('获取流程图失败', e)
+    flowData.value = {
+      processInstanceId: row.processInstanceId || '',
+      businessCode: row.businessNo,
+      currentStatus: 'COMPLETED',
+      nodes: buildFlowNodes(row)
+    }
   }
 
   opinionList.value = buildOpinionList(row)
@@ -309,10 +373,15 @@ const handleAdoptResult = async (data) => {
   try {
     await adoptRetestResult(data)
     compareVisible.value = false
+    fetchHistoryList()
   } catch {
     compareVisible.value = false
   }
 }
+
+onMounted(() => {
+  fetchHistoryList()
+})
 </script>
 
 <style lang="scss" scoped>

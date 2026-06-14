@@ -16,4 +16,7 @@ public interface SamplingReviewMapper extends BaseMapper<SamplingReview> {
 
     @Select("SELECT * FROM sampling_review WHERE review_status = 'PENDING' AND deleted = 0 ORDER BY create_time DESC")
     List<SamplingReview> selectPendingReviews();
+
+    @Select("SELECT task_id FROM sampling_review WHERE deleted = 0")
+    List<Long> selectAllReviewedTaskIds();
 }

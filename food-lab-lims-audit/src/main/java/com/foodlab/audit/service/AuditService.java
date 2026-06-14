@@ -46,4 +46,10 @@ public interface AuditService extends IService<AuditRecord> {
     List<SamplingReview> getPendingSamplingReviews();
 
     void completeSamplingReview(Long reviewId, String result, String opinion, Long userId, String userName);
+
+    List<com.foodlab.task.entity.DetectTask> previewSamplingTasks(Double sampleRate, String reviewType);
+
+    SamplingReview createSamplingReviewWithTasks(SamplingReviewDTO dto, Long userId, String userName);
+
+    List<SamplingReview> getSamplingReviewDetail(Long reviewId);
 }
